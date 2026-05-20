@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Medicine {
+  id            String   @id @default(cuid())
+  name          String
+  category      String
+  stock         Int      @default(0)
+  unit          String
+  purchasePrice Float
+  sellingPrice  Float
+  minStock      Int      @default(50)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("medicines")
+}
+
+model Sale {
+  id            String     @id @default(cuid())
+  invoiceNumber String     @unique
+  date          DateTime
+  subtotal      Float
+  tax           Float      @default(0)
+  discount      Float      @default(0)
+  total         Float
+  paymentMethod String
+  cashierName   String
+  customerName  String?
+  status        String     @default("completed")
+  items         SaleItem[]
+  createdAt     DateTime   @default(now())
+
+  @@map("sales")
+}
+
+model SaleItem {
+  id           String @id @default(cuid())
+  saleId       String
+  medicineId   String
+  medicineName String
+  quantity     Int
+  unit         String
+  price        Float
+  total        Float
+  sale         Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@map("sale_items")
+}
+
+model Purchase {
+  id            String   @id @default(cuid())
+  date          DateTime
+  medicineId    String
+  medicineName  String
+  quantity      Int
+  purchasePrice Float
+  total         Float
+  invoiceNumber String
+  status        String   @default("received")
+  createdAt     DateTime @default(now())
+
+  @@map("purchases")
+}
+
+model Category {
+  id   String @id @default(cuid())
+  name String @unique
+
+  @@map("categories")
+}
