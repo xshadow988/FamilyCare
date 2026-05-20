@@ -43,9 +43,20 @@ export default function InventoryPage() {
   const addCategory = async () => {
     const trimmed = newCategoryInput.trim();
     if (!trimmed || categories.includes(trimmed)) return;
-    await fetch('/api/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: trimmed }) });
-    setCategories(prev => [...prev, trimmed]);
-    setNewCategoryInput('');
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      setCategories(prev => [...prev, trimmed]);
+      setNewCategoryInput('');
+      setShowCategoryDialog(false);
+    } catch (err) {
+      console.error('Failed to save category:', err);
+      alert('Could not save category. Please check your database connection.');
+    }
   };
 
   const removeCategory = async (cat: string) => {
@@ -399,7 +410,7 @@ export default function InventoryPage() {
             <Input
               value={newCategoryInput}
               onChange={e => setNewCategoryInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && !categories.includes(newCategoryInput.trim()) && newCategoryInput.trim() && (addCategory(), setShowCategoryDialog(false))}
+              onKeyDown={e => { if (e.key === 'Enter') addCategory(); }}
               placeholder="e.g. Antibiotics"
               className="h-10 rounded-xl"
               autoFocus
@@ -423,7 +434,7 @@ export default function InventoryPage() {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowCategoryDialog(false)} className="px-5">Cancel</Button>
             <Button
-              onClick={() => { addCategory(); if (newCategoryInput.trim() && !categories.includes(newCategoryInput.trim())) setShowCategoryDialog(false); }}
+              onClick={addCategory}
               disabled={!newCategoryInput.trim() || categories.includes(newCategoryInput.trim())}
               className="px-5 bg-foreground hover:bg-foreground/90 text-background"
             >
