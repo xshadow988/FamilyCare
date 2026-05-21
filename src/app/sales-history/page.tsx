@@ -167,9 +167,8 @@ export default function SalesHistoryPage() {
       {/* Receipt Detail Modal */}
       <Dialog open={!!selectedSale} onOpenChange={() => setSelectedSale(null)}>
         <DialogContent className="max-w-sm p-0 rounded-2xl overflow-hidden">
-          <DialogHeader className="px-6 pt-5 pb-3 border-b">
-            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
-              <Receipt className="h-4 w-4 text-blue-600" />
+          <DialogHeader className="px-6 pt-4 pb-3 border-b">
+            <DialogTitle className="text-sm font-semibold">
               {selectedSale?.invoiceNumber}
             </DialogTitle>
           </DialogHeader>
@@ -227,7 +226,7 @@ export default function SalesHistoryPage() {
                   <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{CURRENCY} {selectedSale.subtotal.toFixed(2)}</span></div>
                   {selectedSale.discount > 0 && <div className="flex justify-between text-emerald-600"><span>Discount</span><span>-{CURRENCY} {selectedSale.discount.toFixed(2)}</span></div>}
                   <div className="flex justify-between"><span className="text-muted-foreground">Tax ({defaultSettings.taxPercentage}%)</span><span>{CURRENCY} {selectedSale.tax.toFixed(2)}</span></div>
-                  <div className="flex justify-between font-bold text-sm pt-1 border-t border-dashed"><span className="text-foreground">TOTAL</span><span className="text-blue-600 tabular-nums">{CURRENCY} {selectedSale.total.toFixed(2)}</span></div>
+                  <div className="flex justify-between font-bold text-sm pt-1 border-t border-dashed"><span className="text-foreground">TOTAL</span><span className="text-foreground tabular-nums">{CURRENCY} {selectedSale.total.toFixed(2)}</span></div>
                 </div>
 
                 <div className="text-center text-muted-foreground text-[11px]">{defaultSettings.receiptFooter}</div>
@@ -235,7 +234,7 @@ export default function SalesHistoryPage() {
             </ScrollArea>
           )}
           <div className="p-4 border-t">
-            <Button onClick={() => window.print()} className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+            <Button onClick={() => window.print()} className="w-full gap-2 bg-foreground hover:bg-foreground/90 text-background">
               <Printer className="h-4 w-4" /> Print Receipt
             </Button>
           </div>

@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Search, Plus, Minus, Trash2, ShoppingCart, Printer,
-  CheckCircle2, X, Package, Banknote, Smartphone, User, Loader2,
+  X, Package, Banknote, Smartphone, User, Loader2,
 } from 'lucide-react';
 import { defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
@@ -446,9 +446,8 @@ export default function POSPage() {
       <Dialog open={showReceipt} onOpenChange={(open) => { if (!open) handleNewSale(); }}>
         <DialogContent className="max-w-sm p-0 rounded-2xl overflow-hidden">
           <DialogHeader className="px-6 pt-4 pb-3 border-b">
-            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-              Sale Complete — Receipt
+            <DialogTitle className="text-sm font-semibold">
+              Medical Receipt Details
             </DialogTitle>
           </DialogHeader>
 
