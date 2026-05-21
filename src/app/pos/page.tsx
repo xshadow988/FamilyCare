@@ -16,6 +16,7 @@ import {
 import { defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
 import { Medicine, CartItem, Sale } from '@/lib/types';
+import { printReceipt } from '@/lib/print-receipt';
 import { cn } from '@/lib/utils';
 
 const CURRENCY = defaultSettings.currencySymbol;
@@ -522,7 +523,7 @@ export default function POSPage() {
           </ScrollArea>
 
           <div className="p-4 border-t grid grid-cols-2 gap-2">
-            <Button variant="outline" onClick={() => window.print()} className="gap-2">
+            <Button variant="outline" onClick={() => lastSale && printReceipt(lastSale)} className="gap-2">
               <Printer className="h-4 w-4" /> Print
             </Button>
             <Button onClick={handleNewSale} className="bg-foreground hover:bg-foreground/90 text-background gap-2">

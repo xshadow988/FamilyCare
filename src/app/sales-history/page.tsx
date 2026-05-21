@@ -17,6 +17,7 @@ import {
   ShoppingCart, Filter,
 } from 'lucide-react';
 import { defaultSettings } from '@/lib/data';
+import { printReceipt } from '@/lib/print-receipt';
 import { useAppContext } from '@/components/providers/app-context';
 import { Sale } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -234,7 +235,7 @@ export default function SalesHistoryPage() {
             </ScrollArea>
           )}
           <div className="p-4 border-t">
-            <Button onClick={() => window.print()} className="w-full gap-2 bg-foreground hover:bg-foreground/90 text-background">
+            <Button onClick={() => selectedSale && printReceipt(selectedSale)} className="w-full gap-2 bg-foreground hover:bg-foreground/90 text-background">
               <Printer className="h-4 w-4" /> Print Receipt
             </Button>
           </div>
