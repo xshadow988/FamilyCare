@@ -325,7 +325,18 @@ export default function POSPage() {
                           >
                             <Minus className="h-3 w-3" />
                           </button>
-                          <span className="w-7 text-center text-sm font-bold tabular-nums text-foreground">{item.quantity}</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={item.quantity}
+                            onChange={e => {
+                              const val = parseInt(e.target.value.replace(/\D/g, '')) || 0;
+                              const clamped = Math.min(Math.max(val, 1), item.medicine.stock);
+                              setCart(prev => prev.map(i => i.medicine.id === item.medicine.id ? { ...i, quantity: clamped } : i));
+                            }}
+                            onBlur={e => { if (!parseInt(e.target.value)) setCart(prev => prev.filter(i => i.medicine.id !== item.medicine.id)); }}
+                            className="w-10 text-center text-sm font-bold tabular-nums text-foreground bg-transparent border-b border-foreground/30 focus:border-foreground focus:outline-none"
+                          />
                           <button
                             onClick={() => updateQty(item.medicine.id, 1)}
                             disabled={item.quantity >= item.medicine.stock}
