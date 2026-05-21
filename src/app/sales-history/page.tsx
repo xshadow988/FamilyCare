@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Search, Eye, Printer, Receipt, TrendingUp, DollarSign,
-  ShoppingCart, Filter,
+  ShoppingCart, Filter, RotateCcw, AlertTriangle,
 } from 'lucide-react';
 import { defaultSettings } from '@/lib/data';
 import { printReceipt } from '@/lib/print-receipt';
@@ -31,11 +31,32 @@ function PaymentBadge({ method }: { method: Sale['paymentMethod'] }) {
 }
 
 export default function SalesHistoryPage() {
-  const { sales } = useAppContext();
+  const { sales, setSales, setMedicines } = useAppContext();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [paymentFilter, setPaymentFilter] = useState('All');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [showRevertConfirm, setShowRevertConfirm] = useState(false);
+  const [reverting, setReverting] = useState(false);
+
+  const handleRevert = async () => {
+    if (!selectedSale) return;
+    setReverting(true);
+    try {
+      const res = await fetch(`/api/sales/${selectedSale.id}/revert`, { method: 'POST' });
+      if (!res.ok) throw new Error('Failed');
+      // Update local state — mark sale refunded and restore stock
+      setSales(prev => prev.map(s => s.id === selectedSale.id ? { ...s, status: 'refunded' as const } : s));
+      const medsRes = await fetch('/api/medicines');
+      setMedicines(await medsRes.json());
+      setSelectedSale(prev => prev ? { ...prev, status: 'refunded' } : null);
+      setShowRevertConfirm(false);
+    } catch {
+      alert('Could not revert sale. Please try again.');
+    } finally {
+      setReverting(false);
+    }
+  };
 
   const filtered = sales.filter(s => {
     const q = search.toLowerCase();
@@ -234,9 +255,58 @@ export default function SalesHistoryPage() {
               </div>
             </ScrollArea>
           )}
-          <div className="p-4 border-t">
-            <Button onClick={() => selectedSale && printReceipt(selectedSale)} className="w-full gap-2 bg-foreground hover:bg-foreground/90 text-background">
-              <Printer className="h-4 w-4" /> Print Receipt
+          <div className="p-4 border-t flex gap-2">
+            <Button
+              onClick={() => selectedSale && printReceipt(selectedSale)}
+              variant="outline"
+              className="flex-1 gap-2"
+            >
+              <Printer className="h-4 w-4" /> Print
+            </Button>
+            {selectedSale?.status === 'completed' && (
+              <Button
+                onClick={() => setShowRevertConfirm(true)}
+                variant="outline"
+                className="flex-1 gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/40 dark:hover:bg-red-950/20"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Revert Sale
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revert confirmation */}
+      <Dialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-4 w-4" /> Revert Sale
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              This will mark <span className="font-semibold text-foreground">{selectedSale?.invoiceNumber}</span> as refunded and add the items back to inventory.
+            </p>
+            <div className="rounded-xl bg-muted px-4 py-3 space-y-1">
+              {selectedSale?.items.map((item, i) => (
+                <div key={i} className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">{item.medicineName}</span>
+                  <span className="font-medium text-foreground">+{item.quantity} {item.unit}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" className="flex-1" onClick={() => setShowRevertConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRevert}
+              disabled={reverting}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+            >
+              {reverting ? 'Reverting...' : 'Confirm Revert'}
             </Button>
           </div>
         </DialogContent>
