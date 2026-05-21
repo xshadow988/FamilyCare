@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,32 @@ import { cn } from '@/lib/utils';
 
 const CURRENCY = defaultSettings.currencySymbol;
 type PaymentMethod = 'cash' | 'online';
+
+function QtyInput({ value, max, onChange }: { value: number; max: number; onChange: (v: number) => void }) {
+  const [raw, setRaw] = useState(String(value));
+  useEffect(() => { setRaw(String(value)); }, [value]);
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={raw}
+      onChange={e => {
+        const s = e.target.value.replace(/\D/g, '');
+        setRaw(s);
+        const n = parseInt(s);
+        if (n >= 1 && n <= max) onChange(n);
+      }}
+      onBlur={() => {
+        const n = parseInt(raw);
+        if (!n || n < 1) { setRaw('1'); onChange(1); }
+        else if (n > max) { setRaw(String(max)); onChange(max); }
+        else setRaw(String(n));
+      }}
+      onFocus={e => e.target.select()}
+      className="w-10 text-center text-sm font-bold tabular-nums text-foreground bg-transparent border-b border-foreground/30 focus:border-foreground focus:outline-none"
+    />
+  );
+}
 
 let invoiceCounter = 0;
 function generateInvoice() {
@@ -325,17 +351,10 @@ export default function POSPage() {
                           >
                             <Minus className="h-3 w-3" />
                           </button>
-                          <input
-                            type="text"
-                            inputMode="numeric"
+                          <QtyInput
                             value={item.quantity}
-                            onChange={e => {
-                              const val = parseInt(e.target.value.replace(/\D/g, '')) || 0;
-                              const clamped = Math.min(Math.max(val, 1), item.medicine.stock);
-                              setCart(prev => prev.map(i => i.medicine.id === item.medicine.id ? { ...i, quantity: clamped } : i));
-                            }}
-                            onBlur={e => { if (!parseInt(e.target.value)) setCart(prev => prev.filter(i => i.medicine.id !== item.medicine.id)); }}
-                            className="w-10 text-center text-sm font-bold tabular-nums text-foreground bg-transparent border-b border-foreground/30 focus:border-foreground focus:outline-none"
+                            max={item.medicine.stock}
+                            onChange={qty => setCart(prev => prev.map(i => i.medicine.id === item.medicine.id ? { ...i, quantity: qty } : i))}
                           />
                           <button
                             onClick={() => updateQty(item.medicine.id, 1)}
