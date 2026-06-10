@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Search, Sun, Moon, Monitor, ChevronDown,
+  Search, Sun, Moon, Monitor, ChevronDown, Check,
   User, Settings, LogOut, ShoppingCart, Package, ShoppingBag,
   LayoutDashboard, BarChart3, Menu,
 } from 'lucide-react';
@@ -11,12 +10,9 @@ import { useTheme } from 'next-themes';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Command, CommandGroup, CommandItem, CommandList, CommandSeparator, CommandShortcut,
-} from '@/components/ui/command';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Sidebar } from './sidebar';
 import { useAuth } from '@/components/providers/auth-context';
@@ -57,8 +53,16 @@ function ThemeToggle() {
   );
 }
 
+/** Small muted heading that labels a segment inside the menu. */
+function SegmentLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <DropdownMenuLabel className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-widest text-muted-foreground/60">
+      {children}
+    </DropdownMenuLabel>
+  );
+}
+
 function UserMenu() {
-  const [open, setOpen] = useState(false);
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { user, logout } = useAuth();
@@ -67,13 +71,18 @@ function UserMenu() {
   const initials = (user?.name ?? '?')
     .split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
-  const go = (href: string) => { setOpen(false); router.push(href); };
-  const pickTheme = (t: string) => { setTheme(t); };
-  const handleLogout = () => { setOpen(false); logout(); router.replace('/login'); };
+  const go = (href: string) => router.push(href);
+  const handleLogout = () => { logout(); router.replace('/login'); };
+
+  const themeOptions = [
+    { value: 'light', label: 'Light', icon: Sun },
+    { value: 'dark', label: 'Dark', icon: Moon },
+    { value: 'system', label: 'System', icon: Monitor },
+  ];
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="flex items-center gap-2 h-9 px-2 rounded-full hover:bg-muted transition-colors">
+    <DropdownMenu>
+      <DropdownMenuTrigger className="flex items-center gap-2 h-9 px-2 rounded-full hover:bg-muted transition-colors">
         <Avatar className="h-7 w-7">
           <AvatarFallback className="bg-foreground text-background text-xs font-bold">
             {initials}
@@ -84,11 +93,11 @@ function UserMenu() {
           <span className="text-[10px] text-muted-foreground capitalize">{user?.role ?? ''}</span>
         </div>
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
-      </PopoverTrigger>
+      </DropdownMenuTrigger>
 
-      <PopoverContent align="end" sideOffset={8} className="w-64 p-0">
+      <DropdownMenuContent align="end" sideOffset={8} className="w-64 p-1">
         {/* Identity header */}
-        <div className="flex items-center gap-3 px-3 py-3">
+        <div className="flex items-center gap-3 px-2 py-2.5">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-foreground text-background text-xs font-bold">
               {initials}
@@ -97,85 +106,81 @@ function UserMenu() {
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground truncate">{user?.name ?? '—'}</p>
             <p className="text-xs text-muted-foreground truncate">@{user?.username ?? ''}</p>
-            <span className="mt-1 inline-block rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground capitalize">
+            <span className="mt-1 inline-block rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
               {isAdmin ? 'Administrator' : 'Staff'}
             </span>
           </div>
         </div>
 
-        <CommandSeparator />
+        <DropdownMenuSeparator />
 
-        <Command>
-          <CommandList className="max-h-none">
-            {/* Account */}
-            <CommandGroup heading="Account">
-              <CommandItem value="profile" onSelect={() => go('/profile')}>
-                <User /> My Profile
-              </CommandItem>
-              {isAdmin && (
-                <CommandItem value="settings" onSelect={() => go('/settings')}>
-                  <Settings /> Account Settings
-                </CommandItem>
-              )}
-            </CommandGroup>
+        {/* Account */}
+        <SegmentLabel>Account</SegmentLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={() => go('/profile')}>
+            <User className="mr-2 h-4 w-4" /> My Profile
+          </DropdownMenuItem>
+          {isAdmin && (
+            <DropdownMenuItem onClick={() => go('/settings')}>
+              <Settings className="mr-2 h-4 w-4" /> Account Settings
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuGroup>
 
-            <CommandSeparator />
+        <DropdownMenuSeparator />
 
-            {/* Quick actions */}
-            <CommandGroup heading="Quick Actions">
-              <CommandItem value="new-sale" onSelect={() => go('/pos')}>
-                <ShoppingCart /> New Sale
-                <CommandShortcut>POS</CommandShortcut>
-              </CommandItem>
-              <CommandItem value="add-medicine" onSelect={() => go('/inventory')}>
-                <Package /> Manage Inventory
-              </CommandItem>
-              <CommandItem value="record-purchase" onSelect={() => go('/purchases')}>
-                <ShoppingBag /> Record Purchase
-              </CommandItem>
-              {isAdmin && (
-                <>
-                  <CommandItem value="dashboard" onSelect={() => go('/dashboard')}>
-                    <LayoutDashboard /> Dashboard
-                  </CommandItem>
-                  <CommandItem value="reports" onSelect={() => go('/reports')}>
-                    <BarChart3 /> Reports
-                  </CommandItem>
-                </>
-              )}
-            </CommandGroup>
+        {/* Quick actions */}
+        <SegmentLabel>Quick Actions</SegmentLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={() => go('/pos')}>
+            <ShoppingCart className="mr-2 h-4 w-4" /> New Sale
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => go('/inventory')}>
+            <Package className="mr-2 h-4 w-4" /> Manage Inventory
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => go('/purchases')}>
+            <ShoppingBag className="mr-2 h-4 w-4" /> Record Purchase
+          </DropdownMenuItem>
+          {isAdmin && (
+            <>
+              <DropdownMenuItem onClick={() => go('/dashboard')}>
+                <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => go('/reports')}>
+                <BarChart3 className="mr-2 h-4 w-4" /> Reports
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuGroup>
 
-            <CommandSeparator />
+        <DropdownMenuSeparator />
 
-            {/* Appearance */}
-            <CommandGroup heading="Appearance">
-              <CommandItem value="theme-light" data-checked={theme === 'light'} onSelect={() => pickTheme('light')}>
-                <Sun /> Light
-              </CommandItem>
-              <CommandItem value="theme-dark" data-checked={theme === 'dark'} onSelect={() => pickTheme('dark')}>
-                <Moon /> Dark
-              </CommandItem>
-              <CommandItem value="theme-system" data-checked={theme === 'system'} onSelect={() => pickTheme('system')}>
-                <Monitor /> System
-              </CommandItem>
-            </CommandGroup>
+        {/* Appearance */}
+        <SegmentLabel>Appearance</SegmentLabel>
+        <DropdownMenuGroup>
+          {themeOptions.map(opt => (
+            <DropdownMenuItem
+              key={opt.value}
+              closeOnClick={false}
+              onClick={() => setTheme(opt.value)}
+            >
+              <opt.icon className="mr-2 h-4 w-4" /> {opt.label}
+              {theme === opt.value && <Check className="ml-auto h-4 w-4" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
 
-            <CommandSeparator />
+        <DropdownMenuSeparator />
 
-            {/* Session */}
-            <CommandGroup heading="Session">
-              <CommandItem
-                value="logout"
-                onSelect={handleLogout}
-                className="text-destructive data-selected:bg-destructive/10 data-selected:text-destructive data-selected:*:[svg]:text-destructive"
-              >
-                <LogOut /> Log out
-              </CommandItem>
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+        {/* Session */}
+        <SegmentLabel>Session</SegmentLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuItem variant="destructive" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" /> Log out
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
