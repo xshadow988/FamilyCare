@@ -1,18 +1,25 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
-import { Search, Sun, Moon, Monitor, ChevronDown, User, Settings, LogOut } from 'lucide-react';
+import { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  Search, Sun, Moon, Monitor, ChevronDown,
+  User, Settings, LogOut, ShoppingCart, Package, ShoppingBag,
+  LayoutDashboard, BarChart3, Menu,
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command, CommandGroup, CommandItem, CommandList, CommandSeparator, CommandShortcut,
+} from '@/components/ui/command';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu } from 'lucide-react';
 import { Sidebar } from './sidebar';
+import { useAuth } from '@/components/providers/auth-context';
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
   '/dashboard': { title: 'Dashboard', subtitle: 'Overview of your pharmacy operations' },
@@ -23,6 +30,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   '/profits': { title: 'Profits & Analytics', subtitle: 'Financial performance and profit insights' },
   '/reports': { title: 'Reports', subtitle: 'Generate and export detailed reports' },
   '/settings': { title: 'Settings', subtitle: 'Configure your pharmacy system' },
+  '/profile': { title: 'My Profile', subtitle: 'Your account details' },
 };
 
 function ThemeToggle() {
@@ -46,6 +54,128 @@ function ThemeToggle() {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function UserMenu() {
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const { theme, setTheme } = useTheme();
+  const { user, logout } = useAuth();
+
+  const isAdmin = user?.role === 'admin';
+  const initials = (user?.name ?? '?')
+    .split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+  const go = (href: string) => { setOpen(false); router.push(href); };
+  const pickTheme = (t: string) => { setTheme(t); };
+  const handleLogout = () => { setOpen(false); logout(); router.replace('/login'); };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger className="flex items-center gap-2 h-9 px-2 rounded-full hover:bg-muted transition-colors">
+        <Avatar className="h-7 w-7">
+          <AvatarFallback className="bg-foreground text-background text-xs font-bold">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+        <div className="hidden sm:flex flex-col items-start leading-tight">
+          <span className="text-xs font-semibold text-foreground">{user?.name ?? '—'}</span>
+          <span className="text-[10px] text-muted-foreground capitalize">{user?.role ?? ''}</span>
+        </div>
+        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
+      </PopoverTrigger>
+
+      <PopoverContent align="end" sideOffset={8} className="w-64 p-0">
+        {/* Identity header */}
+        <div className="flex items-center gap-3 px-3 py-3">
+          <Avatar className="h-9 w-9">
+            <AvatarFallback className="bg-foreground text-background text-xs font-bold">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground truncate">{user?.name ?? '—'}</p>
+            <p className="text-xs text-muted-foreground truncate">@{user?.username ?? ''}</p>
+            <span className="mt-1 inline-block rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground capitalize">
+              {isAdmin ? 'Administrator' : 'Staff'}
+            </span>
+          </div>
+        </div>
+
+        <CommandSeparator />
+
+        <Command>
+          <CommandList className="max-h-none">
+            {/* Account */}
+            <CommandGroup heading="Account">
+              <CommandItem value="profile" onSelect={() => go('/profile')}>
+                <User /> My Profile
+              </CommandItem>
+              {isAdmin && (
+                <CommandItem value="settings" onSelect={() => go('/settings')}>
+                  <Settings /> Account Settings
+                </CommandItem>
+              )}
+            </CommandGroup>
+
+            <CommandSeparator />
+
+            {/* Quick actions */}
+            <CommandGroup heading="Quick Actions">
+              <CommandItem value="new-sale" onSelect={() => go('/pos')}>
+                <ShoppingCart /> New Sale
+                <CommandShortcut>POS</CommandShortcut>
+              </CommandItem>
+              <CommandItem value="add-medicine" onSelect={() => go('/inventory')}>
+                <Package /> Manage Inventory
+              </CommandItem>
+              <CommandItem value="record-purchase" onSelect={() => go('/purchases')}>
+                <ShoppingBag /> Record Purchase
+              </CommandItem>
+              {isAdmin && (
+                <>
+                  <CommandItem value="dashboard" onSelect={() => go('/dashboard')}>
+                    <LayoutDashboard /> Dashboard
+                  </CommandItem>
+                  <CommandItem value="reports" onSelect={() => go('/reports')}>
+                    <BarChart3 /> Reports
+                  </CommandItem>
+                </>
+              )}
+            </CommandGroup>
+
+            <CommandSeparator />
+
+            {/* Appearance */}
+            <CommandGroup heading="Appearance">
+              <CommandItem value="theme-light" data-checked={theme === 'light'} onSelect={() => pickTheme('light')}>
+                <Sun /> Light
+              </CommandItem>
+              <CommandItem value="theme-dark" data-checked={theme === 'dark'} onSelect={() => pickTheme('dark')}>
+                <Moon /> Dark
+              </CommandItem>
+              <CommandItem value="theme-system" data-checked={theme === 'system'} onSelect={() => pickTheme('system')}>
+                <Monitor /> System
+              </CommandItem>
+            </CommandGroup>
+
+            <CommandSeparator />
+
+            {/* Session */}
+            <CommandGroup heading="Session">
+              <CommandItem
+                value="logout"
+                onSelect={handleLogout}
+                className="text-destructive data-selected:bg-destructive/10 data-selected:text-destructive data-selected:*:[svg]:text-destructive"
+              >
+                <LogOut /> Log out
+              </CommandItem>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -82,43 +212,8 @@ export function Navbar() {
 
       {/* Actions */}
       <div className="flex items-center gap-1.5">
-        {/* Theme toggle */}
         <ThemeToggle />
-
-        {/* Profile */}
-        <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center gap-2 h-9 px-2 rounded-full hover:bg-muted transition-colors">
-            <Avatar className="h-7 w-7">
-              <AvatarFallback className="bg-muted text-foreground text-xs font-bold">
-                MS
-              </AvatarFallback>
-            </Avatar>
-            <div className="hidden sm:flex flex-col items-start leading-tight">
-              <span className="text-xs font-semibold text-foreground">M.Shafique</span>
-              <span className="text-[10px] text-muted-foreground">Manager</span>
-            </div>
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>
-              <div>
-                <p className="text-sm font-semibold">M.Shafique</p>
-                <p className="text-xs text-muted-foreground font-normal">manager@familycare.com</p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <User className="mr-2 h-4 w-4" /> Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" /> Settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
-              <LogOut className="mr-2 h-4 w-4" /> Log out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <UserMenu />
       </div>
     </header>
   );
