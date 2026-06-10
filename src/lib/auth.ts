@@ -7,8 +7,8 @@ export interface AuthUser {
 }
 
 const CREDENTIALS = [
-  { username: 'xshadow98', password: 'pakistan47', name: 'M.Shafique', role: 'admin' as UserRole },
-  { username: 'staff01',   password: 'staff123',   name: 'Staff',      role: 'user'  as UserRole },
+  { username: 'Admin',   password: 'pakistan47',    name: 'M.Shafique', role: 'admin' as UserRole },
+  { username: 'staff01', password: 'staffaccess01', name: 'Staff',      role: 'user'  as UserRole },
 ];
 
 export function validateCredentials(username: string, password: string): AuthUser | null {
