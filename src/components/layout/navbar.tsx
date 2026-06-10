@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Sidebar } from './sidebar';
@@ -53,12 +53,17 @@ function ThemeToggle() {
   );
 }
 
-/** Small muted heading that labels a segment inside the menu. */
+/** Small muted heading that labels a segment inside the menu.
+ *  Plain div on purpose — base-ui's Menu.GroupLabel throws if it's not a
+ *  direct child of a Menu.Group, and these headings are purely visual. */
 function SegmentLabel({ children }: { children: React.ReactNode }) {
   return (
-    <DropdownMenuLabel className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-widest text-muted-foreground/60">
+    <div
+      role="presentation"
+      className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-widest text-muted-foreground/60 select-none"
+    >
       {children}
-    </DropdownMenuLabel>
+    </div>
   );
 }
 
