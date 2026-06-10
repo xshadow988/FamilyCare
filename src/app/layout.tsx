@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider } from "@/components/providers/app-context";
+import { AuthProvider } from "@/components/providers/auth-context";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -31,11 +32,13 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange={false}
         >
-          <AppProvider>
-            <TooltipProvider>
-              {children}
-            </TooltipProvider>
-          </AppProvider>
+          <AuthProvider>
+            <AppProvider>
+              <TooltipProvider>
+                {children}
+              </TooltipProvider>
+            </AppProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

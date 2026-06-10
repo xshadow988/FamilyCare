@@ -1,7 +1,34 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { Navbar } from './navbar';
+import { useAuth } from '@/components/providers/auth-context';
+import { ADMIN_PATHS } from '@/lib/auth';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+    const isAdminOnly = ADMIN_PATHS.some(p => pathname.startsWith(p));
+    if (user.role === 'user' && isAdminOnly) {
+      router.replace('/pos');
+    }
+  }, [user, isLoading, pathname, router]);
+
+  if (isLoading || !user) return null;
+
+  const isAdminOnly = ADMIN_PATHS.some(p => pathname.startsWith(p));
+  if (user.role === 'user' && isAdminOnly) return null;
+
   return (
     <div className="flex h-screen overflow-hidden bg-muted/30">
       {/* Sidebar - desktop only */}
