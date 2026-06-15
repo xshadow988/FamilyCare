@@ -280,7 +280,7 @@ export default function POSPage() {
         </div>
 
         {/* ── RIGHT: Cart ── */}
-        <div className="flex w-[360px] shrink-0 flex-col bg-background">
+        <div className="flex w-[360px] shrink-0 flex-col overflow-hidden bg-background">
           {/* Cart Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b">
             <div className="flex items-center gap-2.5">
@@ -313,7 +313,7 @@ export default function POSPage() {
           </div>
 
           {/* Cart Items */}
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-52 text-center px-6">
                 <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center mb-3">
@@ -380,7 +380,7 @@ export default function POSPage() {
           </ScrollArea>
 
           {/* ── Order Summary ── */}
-          <div className="border-t bg-background">
+          <div className="border-t bg-background shrink-0">
             {/* Payment Method */}
             <div className="px-4 pt-4 pb-3">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Payment Method</p>
