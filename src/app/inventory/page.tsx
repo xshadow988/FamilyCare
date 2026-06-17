@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 
 const CURRENCY = defaultSettings.currencySymbol;
 const PAGE_SIZE = 10;
-const UNITS = ['Tablet', 'Capsule', 'Syrup', 'Injection', 'Inhaler', 'Cream', 'Drops', 'Vial', 'Sachet', 'Patch'];
+const UNITS = ['Tablet', 'Capsule', 'Syrup', 'Injection', 'Inhaler', 'Cream', 'Drops', 'Vial', 'Sachet', 'Patch', 'Lotion', 'Ointment', 'Mother & Baby Care', 'Dressing Items'];
 
 const emptyMed: Omit<Medicine, 'id'> = {
   name: '', category: '', stock: 0, unit: '',
