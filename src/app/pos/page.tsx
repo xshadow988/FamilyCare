@@ -222,7 +222,7 @@ export default function POSPage() {
           </div>
 
           {/* Medicine Grid */}
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="p-4">
               {allMedicines.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-center">
