@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Search, Eye, Printer, Receipt, TrendingUp, DollarSign,
-  ShoppingCart, Filter, RotateCcw, AlertTriangle, CalendarRange, Trash2,
+  ShoppingCart, Filter, RotateCcw, AlertTriangle, CalendarRange, Trash2, Wallet,
 } from 'lucide-react';
 import { defaultSettings } from '@/lib/data';
 import { printReceipt } from '@/lib/print-receipt';
@@ -54,7 +54,7 @@ function PaymentBadge({ method }: { method: Sale['paymentMethod'] }) {
 }
 
 export default function SalesHistoryPage() {
-  const { sales, setSales, setMedicines, setPurchases } = useAppContext();
+  const { sales, setSales, medicines, setMedicines, setPurchases } = useAppContext();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [paymentFilter, setPaymentFilter] = useState('All');
@@ -118,17 +118,25 @@ export default function SalesHistoryPage() {
     return matchSearch && matchStatus && matchPayment && matchPeriod;
   });
 
-  const totalRevenue = filtered.filter(s => s.status === 'completed').reduce((s, sale) => s + sale.total, 0);
-  const completedCount = filtered.filter(s => s.status === 'completed').length;
+  const completedSales = filtered.filter(s => s.status === 'completed');
+  const totalRevenue = completedSales.reduce((s, sale) => s + sale.total, 0);
+  const completedCount = completedSales.length;
+  // Net profit = revenue − cost of goods (matches dashboard / profits / reports)
+  const totalCost = completedSales.reduce((cost, sale) => cost + sale.items.reduce((c, item) => {
+    const med = medicines.find(m => m.id === item.medicineId);
+    return c + (med?.purchasePrice ?? item.price * 0.4) * item.quantity;
+  }, 0), 0);
+  const totalNetProfit = totalRevenue - totalCost;
 
   return (
     <AppLayout>
       <div className="p-5 space-y-4">
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: 'Total Transactions', value: String(filtered.length), icon: ShoppingCart, color: 'text-foreground', bg: 'bg-muted' },
             { label: 'Total Revenue', value: `${CURRENCY} ${totalRevenue.toFixed(2)}`, icon: DollarSign, color: 'text-foreground', bg: 'bg-muted' },
+            { label: 'Total Net Profit', value: `${CURRENCY} ${totalNetProfit.toFixed(2)}`, icon: Wallet, color: 'text-foreground', bg: 'bg-muted' },
             { label: 'Completed Sales', value: String(completedCount), icon: TrendingUp, color: 'text-foreground', bg: 'bg-muted' },
           ].map(s => (
             <Card key={s.label} className="shadow-sm rounded-2xl py-0 gap-0">
