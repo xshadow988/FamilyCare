@@ -123,19 +123,18 @@ export default function PurchasesPage() {
             <Table className="table-fixed">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '20%' }}>Purchase Order</TableHead>
-                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '18%' }}>Medicine</TableHead>
-                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '10%' }}>Qty</TableHead>
-                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '15%' }}>Unit Price</TableHead>
-                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '15%' }}>Total</TableHead>
-                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '12%' }}>Date</TableHead>
-                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '10%' }}>Status</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '22%' }}>Purchase Order</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '24%' }}>Medicine</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '12%' }}>Qty</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '16%' }}>Total</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '14%' }}>Date</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '12%' }}>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-30">
+                    <TableCell colSpan={6} className="text-center py-30">
                       <div className="flex flex-col items-center gap-3">
                         <div className="h-14 w-14 rounded-2xl bg-muted flex items-center justify-center">
                           <ShoppingBag className="h-7 w-7 text-muted-foreground/40" />
@@ -154,7 +153,6 @@ export default function PurchasesPage() {
                     </TableCell>
                     <TableCell className="px-4 py-3 text-sm font-medium text-foreground">{p.medicineName}</TableCell>
                     <TableCell className="px-4 py-3 text-sm font-semibold tabular-nums">{p.quantity.toLocaleString()}</TableCell>
-                    <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">{CURRENCY} {p.purchasePrice.toFixed(2)}</TableCell>
                     <TableCell className="px-4 py-3 text-sm font-bold tabular-nums text-foreground">{CURRENCY} {p.total.toFixed(2)}</TableCell>
                     <TableCell className="px-4 py-3 text-sm text-muted-foreground">{new Date(p.date).toLocaleDateString()}</TableCell>
                     <TableCell className="px-4 py-3"><StatusChip label={p.status.charAt(0).toUpperCase() + p.status.slice(1)} /></TableCell>
@@ -196,10 +194,10 @@ export default function PurchasesPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quantity *</Label>
-                <Input type="text" inputMode="numeric" value={form.quantity === 0 ? '' : String(form.quantity)} onChange={e => f('quantity', parseInt(e.target.value.replace(/\D/g, '')) || 0)} className="h-10 rounded-xl" placeholder="0" />
+                <Input type="text" inputMode="numeric" value={form.quantity === 0 ? '' : String(form.quantity)} onChange={e => f('quantity', parseInt(e.target.value.replace(/\D/g, '')) || 0)} onFocus={e => e.target.select()} className="h-10 rounded-xl" placeholder="0" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Unit Price ({CURRENCY})</Label>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Purchase Price ({CURRENCY})</Label>
                 <Input
                   type="number"
                   step="0.01"

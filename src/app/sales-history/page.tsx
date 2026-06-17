@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Search, Eye, Printer, Receipt, TrendingUp, DollarSign,
-  ShoppingCart, Filter, RotateCcw, AlertTriangle,
+  ShoppingCart, Filter, RotateCcw, AlertTriangle, CalendarRange,
 } from 'lucide-react';
 import { defaultSettings } from '@/lib/data';
 import { printReceipt } from '@/lib/print-receipt';
@@ -35,6 +35,7 @@ export default function SalesHistoryPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [paymentFilter, setPaymentFilter] = useState('All');
+  const [periodFilter, setPeriodFilter] = useState('all');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   const [reverting, setReverting] = useState(false);
@@ -58,12 +59,27 @@ export default function SalesHistoryPage() {
     }
   };
 
+  // Date-range filter — cutoff timestamp (records on/after it pass)
+  const periodCutoff = (() => {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    switch (periodFilter) {
+      case 'daily': { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
+      case 'weekly': return now - 7 * dayMs;
+      case 'biweekly': return now - 14 * dayMs;
+      case 'monthly': return now - 30 * dayMs;
+      case 'bimonthly': return now - 60 * dayMs;
+      default: return null;
+    }
+  })();
+
   const filtered = sales.filter(s => {
     const q = search.toLowerCase();
     const matchSearch = !q || s.invoiceNumber.toLowerCase().includes(q) || (s.customerName ?? '').toLowerCase().includes(q);
     const matchStatus = statusFilter === 'All' || s.status === statusFilter;
     const matchPayment = paymentFilter === 'All' || s.paymentMethod === paymentFilter;
-    return matchSearch && matchStatus && matchPayment;
+    const matchPeriod = periodCutoff === null || new Date(s.date).getTime() >= periodCutoff;
+    return matchSearch && matchStatus && matchPayment && matchPeriod;
   });
 
   const totalRevenue = filtered.filter(s => s.status === 'completed').reduce((s, sale) => s + sale.total, 0);
@@ -101,7 +117,21 @@ export default function SalesHistoryPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search invoices, patients..." className="pl-9 h-9 text-sm bg-muted/50 border-0 focus-visible:ring-1 rounded-xl" />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <Select value={periodFilter} onValueChange={v => { if (v) setPeriodFilter(v); }}>
+                  <SelectTrigger className="w-40 h-9 text-sm border-0 bg-muted/50 rounded-xl">
+                    <CalendarRange className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Time</SelectItem>
+                    <SelectItem value="daily">Daily (Today)</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="biweekly">Bi-Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="bimonthly">Bi-Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Select value={statusFilter} onValueChange={v => { if (v) setStatusFilter(v); }}>
                   <SelectTrigger className="w-36 h-9 text-sm border-0 bg-muted/50 rounded-xl">
                     <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
