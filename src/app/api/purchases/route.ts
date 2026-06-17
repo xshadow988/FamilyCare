@@ -27,12 +27,15 @@ export async function POST(req: Request) {
       },
     });
 
-    // Increment stock and update purchase price
+    // Increment stock and update prices (buy + sale) from the purchase
     await tx.medicine.update({
       where: { id: body.medicineId },
       data: {
         stock: { increment: body.quantity },
         purchasePrice: body.purchasePrice,
+        ...(typeof body.sellingPrice === 'number' && body.sellingPrice > 0
+          ? { sellingPrice: body.sellingPrice }
+          : {}),
       },
     });
 

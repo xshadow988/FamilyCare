@@ -24,12 +24,9 @@ const emptyForm = {
   medicineId: '',
   quantity: 1,
   purchasePrice: 0,
-  invoiceNumber: '',
+  sellingPrice: 0,
   date: new Date().toISOString().split('T')[0],
 };
-
-let poCounter = 0;
-function genPO() { poCounter++; return `PO-${new Date().getFullYear()}-${String(poCounter).padStart(4, '0')}`; }
 
 
 export default function PurchasesPage() {
@@ -54,14 +51,15 @@ export default function PurchasesPage() {
     const med = medicines.find(m => m.id === form.medicineId);
     if (!med) return;
     const purchasePrice = form.purchasePrice || med.purchasePrice;
+    const sellingPrice = form.sellingPrice || med.sellingPrice;
     const payload = {
       date: new Date(form.date).toISOString(),
       medicineId: form.medicineId,
       medicineName: med.name,
       quantity: form.quantity,
       purchasePrice,
+      sellingPrice,
       total: form.quantity * purchasePrice,
-      invoiceNumber: form.invoiceNumber || '',
     };
     const res = await fetch('/api/purchases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const saved = await res.json();
@@ -180,7 +178,7 @@ export default function PurchasesPage() {
               <Select value={form.medicineId} onValueChange={v => {
                 if (!v) return;
                 const med = medicines.find(m => m.id === v);
-                setForm(p => ({ ...p, medicineId: v, purchasePrice: med?.purchasePrice ?? 0 }));
+                setForm(p => ({ ...p, medicineId: v, purchasePrice: med?.purchasePrice ?? 0, sellingPrice: med?.sellingPrice ?? 0 }));
               }}>
                 <SelectTrigger className="h-10 rounded-xl w-full">
                   <SelectValue placeholder="Select medicine">
@@ -202,7 +200,33 @@ export default function PurchasesPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Unit Price ({CURRENCY})</Label>
-                <Input type="number" step="0.01" value={form.purchasePrice} onChange={e => f('purchasePrice', parseFloat(e.target.value) || 0)} className="h-10 rounded-xl" />
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.purchasePrice === 0 ? '' : form.purchasePrice}
+                  onChange={e => f('purchasePrice', parseFloat(e.target.value) || 0)}
+                  placeholder="0.00"
+                  className="h-10 rounded-xl"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sale Price ({CURRENCY})</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.sellingPrice === 0 ? '' : form.sellingPrice}
+                  onChange={e => f('sellingPrice', parseFloat(e.target.value) || 0)}
+                  placeholder="0.00"
+                  className="h-10 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Date</Label>
+                <Input type="date" value={form.date} onChange={e => f('date', e.target.value)} className="h-10 rounded-xl" />
               </div>
             </div>
             {form.quantity > 0 && form.purchasePrice > 0 && (
@@ -211,16 +235,6 @@ export default function PurchasesPage() {
                 <span className="text-base font-bold text-foreground tabular-nums">{CURRENCY} {(form.quantity * form.purchasePrice).toFixed(2)}</span>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Invoice No.</Label>
-                <Input value={form.invoiceNumber} onChange={e => f('invoiceNumber', e.target.value)} placeholder="Auto-generated" className="h-10 rounded-xl" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Date</Label>
-                <Input type="date" value={form.date} onChange={e => f('date', e.target.value)} className="h-10 rounded-xl" />
-              </div>
-            </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
