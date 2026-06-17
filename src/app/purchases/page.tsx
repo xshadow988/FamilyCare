@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  Search, Plus, ShoppingBag, TrendingDown, Package, Clock,
+  Search, Plus, ShoppingBag, TrendingDown, Package, Clock, Trash2,
 } from 'lucide-react';
 import { defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
@@ -34,6 +34,8 @@ export default function PurchasesPage() {
   const [search, setSearch] = useState('');
   const [showDialog, setShowDialog] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [deleteTarget, setDeleteTarget] = useState<Purchase | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const selectedMed = medicines.find(m => m.id === form.medicineId);
 
@@ -69,6 +71,24 @@ export default function PurchasesPage() {
     setMedicines(await medsRes.json());
     setShowDialog(false);
     setForm(emptyForm);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/purchases/${deleteTarget.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed');
+      setPurchases(prev => prev.filter(p => p.id !== deleteTarget.id));
+      // Stock was reversed server-side — refresh medicines
+      const medsRes = await fetch('/api/medicines');
+      setMedicines(await medsRes.json());
+      setDeleteTarget(null);
+    } catch {
+      alert('Could not delete this purchase. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const f = (key: keyof typeof form, val: string | number) => setForm(p => ({ ...p, [key]: val }));
@@ -123,18 +143,21 @@ export default function PurchasesPage() {
             <Table className="table-fixed">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '22%' }}>Purchase Order</TableHead>
-                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '24%' }}>Medicine</TableHead>
-                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '12%' }}>Qty</TableHead>
-                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '16%' }}>Total</TableHead>
-                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '14%' }}>Date</TableHead>
-                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '12%' }}>Status</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '14%' }}>Purchase Order</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '16%' }}>Medicine</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '7%' }}>Qty</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '14%' }}>Purchase Price</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '14%' }}>Selling Price</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '11%' }}>Total</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '12%' }}>Date</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '8%' }}>Status</TableHead>
+                  <TableHead className="px-4 text-muted-foreground font-medium" style={{ width: '4%' }} />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-30">
+                    <TableCell colSpan={9} className="text-center py-30">
                       <div className="flex flex-col items-center gap-3">
                         <div className="h-14 w-14 rounded-2xl bg-muted flex items-center justify-center">
                           <ShoppingBag className="h-7 w-7 text-muted-foreground/40" />
@@ -153,9 +176,20 @@ export default function PurchasesPage() {
                     </TableCell>
                     <TableCell className="px-4 py-3 text-sm font-medium text-foreground">{p.medicineName}</TableCell>
                     <TableCell className="px-4 py-3 text-sm font-semibold tabular-nums">{p.quantity.toLocaleString()}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">{CURRENCY} {p.purchasePrice.toFixed(2)}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">{CURRENCY} {p.sellingPrice.toFixed(2)}</TableCell>
                     <TableCell className="px-4 py-3 text-sm font-bold tabular-nums text-foreground">{CURRENCY} {p.total.toFixed(2)}</TableCell>
                     <TableCell className="px-4 py-3 text-sm text-muted-foreground">{new Date(p.date).toLocaleDateString()}</TableCell>
                     <TableCell className="px-4 py-3"><StatusChip label={p.status.charAt(0).toUpperCase() + p.status.slice(1)} /></TableCell>
+                    <TableCell className="px-2 py-3">
+                      <button
+                        onClick={() => setDeleteTarget(p)}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                        title="Delete purchase"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -238,6 +272,30 @@ export default function PurchasesPage() {
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
             <Button onClick={handleAdd} className="bg-foreground hover:bg-foreground/90 text-background" disabled={!form.medicineId}>
               Record Purchase
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Purchase Confirm */}
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-4 w-4" /> Delete Purchase
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              This will delete <span className="font-semibold text-foreground">{deleteTarget?.invoiceNumber}</span> and remove
+              the <span className="font-semibold text-foreground">{deleteTarget?.quantity} {''}</span>
+              units it added back out of <span className="font-semibold text-foreground">{deleteTarget?.medicineName}</span> stock.
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} className="px-5">Cancel</Button>
+            <Button onClick={handleDelete} disabled={deleting} className="px-5 bg-red-600 hover:bg-red-700 text-white">
+              {deleting ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>

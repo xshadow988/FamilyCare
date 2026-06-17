@@ -12,6 +12,8 @@ export interface Medicine {
 export interface CartItem {
   medicine: Medicine;
   quantity: number;
+  /** Per-line price override (defaults to medicine.sellingPrice) */
+  price?: number;
 }
 
 export interface SaleItem {
@@ -45,6 +47,7 @@ export interface Purchase {
   medicineName: string;
   quantity: number;
   purchasePrice: number;
+  sellingPrice: number;
   total: number;
   invoiceNumber: string;
   status: 'received' | 'pending' | 'cancelled';

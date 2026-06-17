@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Search, Plus, Minus, Trash2, ShoppingCart, Printer,
-  X, Package, Banknote, Smartphone, User, Loader2,
+  X, Package, Banknote, Smartphone, User, Loader2, Pencil,
 } from 'lucide-react';
 import { defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
@@ -44,6 +44,31 @@ function QtyInput({ value, max, onChange }: { value: number; max: number; onChan
       }}
       onFocus={e => e.target.select()}
       className="w-10 text-center text-sm font-bold tabular-nums text-foreground bg-transparent border-b border-foreground/30 focus:border-foreground focus:outline-none"
+    />
+  );
+}
+
+function PriceInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [raw, setRaw] = useState(value.toFixed(2));
+  useEffect(() => { setRaw(value.toFixed(2)); }, [value]);
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={raw}
+      onChange={e => {
+        const s = e.target.value.replace(/[^\d.]/g, '');
+        setRaw(s);
+        const n = parseFloat(s);
+        if (!isNaN(n) && n >= 0) onChange(n);
+      }}
+      onBlur={() => {
+        const n = parseFloat(raw);
+        if (isNaN(n) || n < 0) { setRaw(value.toFixed(2)); }
+        else { setRaw(n.toFixed(2)); onChange(n); }
+      }}
+      onFocus={e => e.target.select()}
+      className="w-16 text-sm font-semibold tabular-nums text-foreground bg-transparent border-b border-foreground/30 focus:border-foreground focus:outline-none"
     />
   );
 }
@@ -83,7 +108,7 @@ export default function POSPage() {
         if (existing.quantity >= medicine.stock) return prev;
         return prev.map(i => i.medicine.id === medicine.id ? { ...i, quantity: i.quantity + 1 } : i);
       }
-      return [...prev, { medicine, quantity: 1 }];
+      return [...prev, { medicine, quantity: 1, price: medicine.sellingPrice }];
     });
   };
 
@@ -95,10 +120,15 @@ export default function POSPage() {
     );
   };
 
+  const updatePrice = (id: string, price: number) =>
+    setCart(prev => prev.map(i => i.medicine.id === id ? { ...i, price } : i));
+
+  const priceOf = (i: CartItem) => i.price ?? i.medicine.sellingPrice;
+
   const removeFromCart = (id: string) => setCart(prev => prev.filter(i => i.medicine.id !== id));
   const clearCart = () => { setCart([]); setCustomerName(''); };
 
-  const total = cart.reduce((sum, i) => sum + i.medicine.sellingPrice * i.quantity, 0);
+  const total = cart.reduce((sum, i) => sum + priceOf(i) * i.quantity, 0);
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
@@ -111,8 +141,8 @@ export default function POSPage() {
           medicineName: item.medicine.name,
           quantity: item.quantity,
           unit: item.medicine.unit,
-          price: item.medicine.sellingPrice,
-          total: item.medicine.sellingPrice * item.quantity,
+          price: priceOf(item),
+          total: priceOf(item) * item.quantity,
         })),
         subtotal: total, tax: 0, discount: 0, total,
         paymentMethod,
@@ -338,10 +368,13 @@ export default function POSPage() {
                         </button>
                       </div>
 
-                      {/* Per-unit price */}
-                      <p className="text-xs text-muted-foreground mb-2.5 font-medium">
-                        {CURRENCY} {item.medicine.sellingPrice.toFixed(2)} per {item.medicine.unit}
-                      </p>
+                      {/* Editable per-unit price */}
+                      <div className="flex items-center gap-1.5 mb-2.5">
+                        <Pencil className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                        <span className="text-xs text-muted-foreground font-medium">{CURRENCY}</span>
+                        <PriceInput value={priceOf(item)} onChange={p => updatePrice(item.medicine.id, p)} />
+                        <span className="text-xs text-muted-foreground font-medium">per {item.medicine.unit}</span>
+                      </div>
 
                       {/* Qty + total */}
                       <div className="flex items-center justify-between">
@@ -366,9 +399,9 @@ export default function POSPage() {
                           </button>
                         </div>
                         <div className="text-right">
-                          <p className="text-[10px] text-muted-foreground">{item.quantity} × {CURRENCY} {item.medicine.sellingPrice.toFixed(2)}</p>
+                          <p className="text-[10px] text-muted-foreground">{item.quantity} × {CURRENCY} {priceOf(item).toFixed(2)}</p>
                           <p className="text-sm font-bold text-foreground tabular-nums">
-                            {CURRENCY} {(item.medicine.sellingPrice * item.quantity).toFixed(2)}
+                            {CURRENCY} {(priceOf(item) * item.quantity).toFixed(2)}
                           </p>
                         </div>
                       </div>

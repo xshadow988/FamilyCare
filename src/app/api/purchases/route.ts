@@ -21,6 +21,7 @@ export async function POST(req: Request) {
         medicineName: body.medicineName,
         quantity: body.quantity,
         purchasePrice: body.purchasePrice,
+        sellingPrice: typeof body.sellingPrice === 'number' ? body.sellingPrice : 0,
         total: body.total,
         invoiceNumber,
         status: 'received',
