@@ -30,7 +30,7 @@ const emptyForm = {
 
 
 export default function PurchasesPage() {
-  const { medicines, setMedicines, purchases, setPurchases } = useAppContext();
+  const { medicines, setMedicines, purchases, setPurchases, setSales } = useAppContext();
   const [search, setSearch] = useState('');
   const [showDialog, setShowDialog] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -91,6 +91,19 @@ export default function PurchasesPage() {
     }
   };
 
+  // TEMP: reset all sales history + purchases (remove this later)
+  const handleResetData = async () => {
+    if (!confirm('Reset ALL Sales History and Purchases data? This cannot be undone. (Medicines & stock are kept.)')) return;
+    try {
+      const res = await fetch('/api/reset/history', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed');
+      setPurchases([]);
+      setSales([]);
+    } catch {
+      alert('Could not reset data. Please try again.');
+    }
+  };
+
   const f = (key: keyof typeof form, val: string | number) => setForm(p => ({ ...p, [key]: val }));
 
   return (
@@ -125,15 +138,26 @@ export default function PurchasesPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search purchases..." className="pl-9 h-9 text-sm bg-muted/50 border-0 focus-visible:ring-1 rounded-xl" />
               </div>
-              <Button
-                onClick={() => { if (medicines.length === 0) return; setShowDialog(true); }}
-                size="sm"
-                className="h-9 gap-1.5 text-sm bg-foreground hover:bg-foreground/90 text-background"
-                disabled={medicines.length === 0}
-                title={medicines.length === 0 ? 'Add medicines in Inventory first' : undefined}
-              >
-                <Plus className="h-3.5 w-3.5" /> New Purchase
-              </Button>
+              <div className="flex gap-2">
+                {/* TEMP: reset data button — remove later */}
+                <Button
+                  onClick={handleResetData}
+                  size="sm"
+                  variant="outline"
+                  className="h-9 gap-1.5 text-sm border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/40 dark:hover:bg-red-950/20"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Reset Data
+                </Button>
+                <Button
+                  onClick={() => { if (medicines.length === 0) return; setShowDialog(true); }}
+                  size="sm"
+                  className="h-9 gap-1.5 text-sm bg-foreground hover:bg-foreground/90 text-background"
+                  disabled={medicines.length === 0}
+                  title={medicines.length === 0 ? 'Add medicines in Inventory first' : undefined}
+                >
+                  <Plus className="h-3.5 w-3.5" /> New Purchase
+                </Button>
+              </div>
             </div>
             {medicines.length === 0 && (
               <p className="text-xs text-amber-600 mt-2">Add medicines in the Inventory screen before recording purchases.</p>
