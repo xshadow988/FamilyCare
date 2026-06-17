@@ -24,6 +24,29 @@ import { cn } from '@/lib/utils';
 
 const CURRENCY = defaultSettings.currencySymbol;
 
+const PERIOD_LABELS: Record<string, string> = {
+  all: 'All Time',
+  daily: 'Daily (Today)',
+  weekly: 'Weekly',
+  biweekly: 'Bi-Weekly',
+  monthly: 'Monthly',
+  bimonthly: 'Bi-Monthly',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  All: 'All Status',
+  completed: 'Completed',
+  refunded: 'Refunded',
+  pending: 'Pending',
+};
+
+const PAYMENT_LABELS: Record<string, string> = {
+  All: 'All Payment',
+  cash: 'Cash',
+  card: 'Card',
+  insurance: 'Insurance',
+};
+
 
 function PaymentBadge({ method }: { method: Sale['paymentMethod'] }) {
   const cls = 'bg-muted text-muted-foreground';
@@ -121,7 +144,7 @@ export default function SalesHistoryPage() {
                 <Select value={periodFilter} onValueChange={v => { if (v) setPeriodFilter(v); }}>
                   <SelectTrigger className="w-40 h-9 text-sm border-0 bg-muted/50 rounded-xl">
                     <CalendarRange className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-                    <SelectValue />
+                    <SelectValue>{PERIOD_LABELS[periodFilter]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Time</SelectItem>
@@ -135,7 +158,7 @@ export default function SalesHistoryPage() {
                 <Select value={statusFilter} onValueChange={v => { if (v) setStatusFilter(v); }}>
                   <SelectTrigger className="w-36 h-9 text-sm border-0 bg-muted/50 rounded-xl">
                     <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-                    <SelectValue />
+                    <SelectValue>{STATUS_LABELS[statusFilter]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="All">All Status</SelectItem>
@@ -146,7 +169,7 @@ export default function SalesHistoryPage() {
                 </Select>
                 <Select value={paymentFilter} onValueChange={v => { if (v) setPaymentFilter(v); }}>
                   <SelectTrigger className="w-36 h-9 text-sm border-0 bg-muted/50 rounded-xl">
-                    <SelectValue placeholder="Payment" />
+                    <SelectValue placeholder="Payment">{PAYMENT_LABELS[paymentFilter]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="All">All Payment</SelectItem>
