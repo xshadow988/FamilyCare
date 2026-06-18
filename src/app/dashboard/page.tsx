@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { dailySalesData, monthlySalesData, defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
+import { tpt, perTablet, isLowStock } from '@/lib/strip';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -100,7 +101,7 @@ export default function DashboardPage() {
     borderRadius: '12px', fontSize: '11px',
   };
   const tooltipLabelStyle = { color: isDark ? '#f1f5f9' : '#1e293b', fontWeight: 600 };
-  const lowStockMeds = medicines.filter(m => m.stock <= m.minStock);
+  const lowStockMeds = medicines.filter(m => isLowStock(m) || m.stock === 0);
 
   const today = new Date().toDateString();
   const completedSales = sales.filter(s => s.status === 'completed');
@@ -109,7 +110,7 @@ export default function DashboardPage() {
   const monthlyProfit = completedSales.reduce((sum, s) => {
     const cost = s.items.reduce((c, item) => {
       const med = medicines.find(m => m.id === item.medicineId);
-      return c + (med?.purchasePrice ?? item.price * 0.4) * item.quantity;
+      return c + (med ? perTablet(med.purchasePrice, tpt(med)) : item.price * 0.4) * item.quantity;
     }, 0);
     return sum + (s.total - cost);
   }, 0);

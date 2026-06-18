@@ -19,20 +19,29 @@ import {
 import { defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
 import { Medicine } from '@/lib/types';
+import { tpt, perTablet, splitStock, formatStock, isLowStock, isOutStock } from '@/lib/strip';
 import { cn } from '@/lib/utils';
 
 const CURRENCY = defaultSettings.currencySymbol;
 const PAGE_SIZE = 10;
 const UNITS = ['Tablet', 'Capsule', 'Syrup', 'Injection', 'Inhaler', 'Cream', 'Drops', 'Vial', 'Sachet', 'Patch', 'Lotion', 'Ointment', 'Mother & Baby Care', 'Dressing Items'];
 
-const emptyMed: Omit<Medicine, 'id'> = {
-  name: '', category: '', stock: 0, unit: '',
-  purchasePrice: 0, sellingPrice: 0, minStock: 50,
+type MedForm = {
+  name: string; category: string; unit: string;
+  purchasePrice: number; sellingPrice: number; minStock: number;
+  tabletsPerStrip: number;
+  stockStrips: number; stockTablets: number;
 };
 
-function StockBadge({ stock, minStock }: { stock: number; minStock: number }) {
-  if (stock === 0) return <StatusChip label="Out of Stock" />;
-  if (stock <= minStock) return <StatusChip label="Low Stock" />;
+const emptyMed: MedForm = {
+  name: '', category: '', unit: '',
+  purchasePrice: 0, sellingPrice: 0, minStock: 50,
+  tabletsPerStrip: 1, stockStrips: 0, stockTablets: 0,
+};
+
+function StockBadge({ med }: { med: Medicine }) {
+  if (isOutStock(med)) return <StatusChip label="Out of Stock" />;
+  if (isLowStock(med)) return <StatusChip label="Low Stock" />;
   return <StatusChip label="In Stock" />;
 }
 
@@ -70,7 +79,7 @@ export default function InventoryPage() {
   const [showDialog, setShowDialog] = useState(false);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [editMed, setEditMed] = useState<Medicine | null>(null);
-  const [formData, setFormData] = useState<Omit<Medicine, 'id'>>(emptyMed);
+  const [formData, setFormData] = useState<MedForm>(emptyMed);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
@@ -79,9 +88,9 @@ export default function InventoryPage() {
       const matchSearch = !q || m.name.toLowerCase().includes(q);
       const matchCat = categoryFilter === 'All' || m.category === categoryFilter;
       const matchStatus = statusFilter === 'All' ||
-        (statusFilter === 'low' && m.stock <= m.minStock && m.stock > 0) ||
-        (statusFilter === 'out' && m.stock === 0) ||
-        (statusFilter === 'ok' && m.stock > m.minStock);
+        (statusFilter === 'low' && isLowStock(m)) ||
+        (statusFilter === 'out' && isOutStock(m)) ||
+        (statusFilter === 'ok' && !isLowStock(m) && !isOutStock(m));
       return matchSearch && matchCat && matchStatus;
     });
   }, [medicines, search, categoryFilter, statusFilter]);
@@ -92,18 +101,34 @@ export default function InventoryPage() {
   const openAdd = () => { setEditMed(null); setFormData(emptyMed); setShowDialog(true); };
   const openEdit = (med: Medicine) => {
     setEditMed(med);
-    setFormData({ name: med.name, category: med.category, stock: med.stock, unit: med.unit, purchasePrice: med.purchasePrice, sellingPrice: med.sellingPrice, minStock: med.minStock });
+    const { strips, tablets } = splitStock(med.stock, med.tabletsPerStrip);
+    setFormData({
+      name: med.name, category: med.category, unit: med.unit,
+      purchasePrice: med.purchasePrice, sellingPrice: med.sellingPrice, minStock: med.minStock,
+      tabletsPerStrip: med.tabletsPerStrip || 1, stockStrips: strips, stockTablets: tablets,
+    });
     setShowDialog(true);
   };
 
   const handleSave = async () => {
     if (!formData.name || !formData.sellingPrice || !formData.category || !formData.unit) return;
+    const tps = Math.max(1, Math.floor(formData.tabletsPerStrip || 1));
+    const payload = {
+      name: formData.name,
+      category: formData.category,
+      unit: formData.unit,
+      purchasePrice: formData.purchasePrice,
+      sellingPrice: formData.sellingPrice,
+      minStock: formData.minStock,
+      tabletsPerStrip: tps,
+      stock: formData.stockStrips * tps + formData.stockTablets,
+    };
     if (editMed) {
-      const res = await fetch(`/api/medicines/${editMed.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
+      const res = await fetch(`/api/medicines/${editMed.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const updated = await res.json();
       setMedicines(prev => prev.map(m => m.id === editMed.id ? updated : m));
     } else {
-      const res = await fetch('/api/medicines', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
+      const res = await fetch('/api/medicines', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const created = await res.json();
       setMedicines(prev => [...prev, created]);
     }
@@ -118,9 +143,11 @@ export default function InventoryPage() {
     setDeleteId(null);
   };
 
-  const f = (key: keyof typeof formData, val: string | number) => setFormData(p => ({ ...p, [key]: val }));
-  const lowStockCount = medicines.filter(m => m.stock <= m.minStock && m.stock > 0).length;
-  const outCount = medicines.filter(m => m.stock === 0).length;
+  const f = (key: keyof MedForm, val: string | number) => setFormData(p => ({ ...p, [key]: val }));
+  const lowStockCount = medicines.filter(isLowStock).length;
+  const outCount = medicines.filter(isOutStock).length;
+  const formTps = Math.max(1, Math.floor(formData.tabletsPerStrip || 1));
+  const formTotalTablets = formData.stockStrips * formTps + formData.stockTablets;
 
   return (
     <AppLayout>
@@ -129,7 +156,7 @@ export default function InventoryPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { label: 'Total Medicines', value: medicines.length },
-            { label: 'In Stock', value: medicines.filter(m => m.stock > m.minStock).length },
+            { label: 'In Stock', value: medicines.filter(m => !isLowStock(m) && !isOutStock(m)).length },
             { label: 'Low Stock', value: lowStockCount },
             { label: 'Out of Stock', value: outCount },
           ].map(s => (
@@ -226,19 +253,27 @@ export default function InventoryPage() {
                     <Badge variant="secondary" className="text-xs font-medium rounded-full truncate max-w-full">{med.category}</Badge>
                   </TableCell>
                   <TableCell className="px-4 py-3 tabular-nums">
-                    <span className={cn('text-sm font-semibold', med.stock === 0 ? 'text-destructive' : med.stock <= med.minStock ? 'text-amber-600 dark:text-amber-400' : 'text-foreground')}>
-                      {med.stock}
+                    <span className={cn('text-sm font-semibold', isOutStock(med) ? 'text-destructive' : isLowStock(med) ? 'text-amber-600 dark:text-amber-400' : 'text-foreground')}>
+                      {formatStock(med.stock, med.tabletsPerStrip)}
                     </span>
-                    <span className="text-xs text-muted-foreground ml-1">{med.unit}</span>
+                    {tpt(med) > 1 && (
+                      <span className="block text-[11px] text-muted-foreground">{med.stock} tablets · {tpt(med)}/strip</span>
+                    )}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">
                     {CURRENCY} {med.purchasePrice.toFixed(2)}
+                    {tpt(med) > 1 && (
+                      <span className="block text-[11px] text-muted-foreground/70">{CURRENCY} {perTablet(med.purchasePrice, tpt(med)).toFixed(2)}/tab</span>
+                    )}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-sm tabular-nums font-semibold text-foreground">
                     {CURRENCY} {med.sellingPrice.toFixed(2)}
+                    {tpt(med) > 1 && (
+                      <span className="block text-[11px] font-normal text-muted-foreground/70">{CURRENCY} {perTablet(med.sellingPrice, tpt(med)).toFixed(2)}/tab</span>
+                    )}
                   </TableCell>
                   <TableCell className="px-4 py-3">
-                    <StockBadge stock={med.stock} minStock={med.minStock} />
+                    <StockBadge med={med} />
                   </TableCell>
                   <TableCell className="py-3 pr-2">
                     <DropdownMenu>
@@ -296,7 +331,7 @@ export default function InventoryPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-md rounded-2xl">
+        <DialogContent className="max-w-xl rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold">{editMed ? 'Edit Medicine' : 'Add New Medicine'}</DialogTitle>
           </DialogHeader>
@@ -335,10 +370,10 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            {/* Purchase Price + Selling Price */}
+            {/* Purchase Price + Selling Price (per strip) */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Purchase Price ({CURRENCY})</Label>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Purchase / Strip ({CURRENCY})</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -350,7 +385,7 @@ export default function InventoryPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Selling Price ({CURRENCY}) *</Label>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Selling / Strip ({CURRENCY}) *</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -363,21 +398,22 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            {/* Stock + Min Stock */}
+            {/* Tablets per strip + Min stock */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Current Stock</Label>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tablets Per Strip</Label>
                 <Input
                   type="number"
-                  value={formData.stock === 0 ? '' : formData.stock}
-                  onChange={e => f('stock', parseInt(e.target.value) || 0)}
-                  placeholder="0"
+                  value={formData.tabletsPerStrip === 0 ? '' : formData.tabletsPerStrip}
+                  onChange={e => f('tabletsPerStrip', parseInt(e.target.value) || 1)}
+                  onFocus={e => e.target.select()}
+                  placeholder="1"
                   className="h-10 rounded-xl w-full"
-                  min="0"
+                  min="1"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Min Stock Alert</Label>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Min Stock Alert (Strips)</Label>
                 <Input
                   type="number"
                   value={formData.minStock === 0 ? '' : formData.minStock}
@@ -388,6 +424,76 @@ export default function InventoryPage() {
                 />
               </div>
             </div>
+
+            {/* Stock entry */}
+            {formTps > 1 ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stock (Strips)</Label>
+                  <Input
+                    type="number"
+                    value={formData.stockStrips === 0 ? '' : formData.stockStrips}
+                    onChange={e => f('stockStrips', parseInt(e.target.value) || 0)}
+                    onFocus={e => e.target.select()}
+                    placeholder="0"
+                    className="h-10 rounded-xl w-full"
+                    min="0"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Loose Tablets</Label>
+                  <Input
+                    type="number"
+                    value={formData.stockTablets === 0 ? '' : formData.stockTablets}
+                    onChange={e => f('stockTablets', parseInt(e.target.value) || 0)}
+                    onFocus={e => e.target.select()}
+                    placeholder="0"
+                    className="h-10 rounded-xl w-full"
+                    min="0"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Current Stock ({formData.unit || 'Units'})</Label>
+                <Input
+                  type="number"
+                  value={formData.stockStrips === 0 ? '' : formData.stockStrips}
+                  onChange={e => f('stockStrips', parseInt(e.target.value) || 0)}
+                  onFocus={e => e.target.select()}
+                  placeholder="0"
+                  className="h-10 rounded-xl w-full"
+                  min="0"
+                />
+              </div>
+            )}
+
+            {/* Auto-calculated per-tablet prices (read-only, always shown) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Purchase / Tablet ({CURRENCY})</Label>
+                <Input
+                  readOnly
+                  tabIndex={-1}
+                  value={`${CURRENCY} ${perTablet(formData.purchasePrice, formTps).toFixed(2)}`}
+                  className="h-10 rounded-xl w-full bg-muted/60 text-muted-foreground cursor-default"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Selling / Tablet ({CURRENCY})</Label>
+                <Input
+                  readOnly
+                  tabIndex={-1}
+                  value={`${CURRENCY} ${perTablet(formData.sellingPrice, formTps).toFixed(2)}`}
+                  className="h-10 rounded-xl w-full bg-muted/60 text-muted-foreground cursor-default"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground -mt-1">
+              {formTps > 1
+                ? <>Auto-calculated from per-strip price ÷ {formTps} tablets · Total stock: <span className="font-semibold text-foreground">{formTotalTablets} tablets</span></>
+                : <>Auto-calculated per unit · Set Tablets Per Strip above to sell loose tablets</>}
+            </p>
           </div>
           <DialogFooter className="mt-2 gap-2">
             <Button variant="outline" onClick={() => setShowDialog(false)} className="px-5">Cancel</Button>

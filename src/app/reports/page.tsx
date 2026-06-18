@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
+import { tpt, perTablet, formatStock } from '@/lib/strip';
 import { cn } from '@/lib/utils';
 
 const CURRENCY = defaultSettings.currencySymbol;
@@ -59,7 +60,7 @@ export default function ReportsPage() {
   const [dateTo, setDateTo] = useState('2026-05-20');
   const [activeTab, setActiveTab] = useState('sales');
 
-  const lowStockMeds = medicines.filter(m => m.stock <= m.minStock);
+  const lowStockMeds = medicines.filter(m => m.stock <= m.minStock * tpt(m));
 
   const filteredSales = sales.filter(s => {
     const d = new Date(s.date);
@@ -79,7 +80,7 @@ export default function ReportsPage() {
       const prev = monthMap.get(key) ?? { revenue: 0, cost: 0 };
       const saleCost = sale.items.reduce((c, item) => {
         const med = medicines.find(m => m.id === item.medicineId);
-        return c + (med?.purchasePrice ?? item.price * 0.4) * item.quantity;
+        return c + (med ? perTablet(med.purchasePrice, tpt(med)) : item.price * 0.4) * item.quantity;
       }, 0);
       monthMap.set(key, { revenue: prev.revenue + sale.total, cost: prev.cost + saleCost });
     });
@@ -250,10 +251,10 @@ export default function ReportsPage() {
                       <TableRow key={m.id} className="hover:bg-muted/30">
                         <TableCell className="px-4 py-3 text-sm font-semibold text-foreground">{m.name}</TableCell>
                         <TableCell className="px-4 py-3"><Badge variant="secondary" className="text-[10px]">{m.category}</Badge></TableCell>
-                        <TableCell className={cn('px-4 py-3 text-sm font-semibold tabular-nums', m.stock <= m.minStock ? 'text-red-600' : 'text-foreground')}>{m.stock} {m.unit}</TableCell>
+                        <TableCell className={cn('px-4 py-3 text-sm font-semibold tabular-nums', m.stock <= m.minStock * tpt(m) ? 'text-red-600' : 'text-foreground')}>{formatStock(m.stock, m.tabletsPerStrip)}</TableCell>
                         <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">{CURRENCY} {m.purchasePrice.toFixed(2)}</TableCell>
                         <TableCell className="px-4 py-3 text-sm tabular-nums font-medium text-foreground">{CURRENCY} {m.sellingPrice.toFixed(2)}</TableCell>
-                        <TableCell className="px-4 py-3 text-sm tabular-nums font-semibold text-foreground">{CURRENCY} {(m.stock * m.sellingPrice).toFixed(2)}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm tabular-nums font-semibold text-foreground">{CURRENCY} {(m.stock * perTablet(m.sellingPrice, tpt(m))).toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -336,8 +337,9 @@ export default function ReportsPage() {
                   </TableHeader>
                   <TableBody>
                     {lowStockMeds.map(m => {
-                      const shortage = m.minStock - m.stock;
-                      const priority = m.stock === 0 ? 'Critical' : shortage > m.minStock * 0.5 ? 'High' : 'Medium';
+                      const minTablets = m.minStock * tpt(m);
+                      const shortage = Math.max(0, minTablets - m.stock);
+                      const priority = m.stock === 0 ? 'Critical' : shortage > minTablets * 0.5 ? 'High' : 'Medium';
                       return (
                         <TableRow key={m.id} className="hover:bg-muted/30">
                           <TableCell className="px-4 py-3">
@@ -345,9 +347,9 @@ export default function ReportsPage() {
                             <p className="text-xs text-muted-foreground">{m.category}</p>
                           </TableCell>
                           <TableCell className="px-4 py-3"><Badge variant="secondary" className="text-[10px]">{m.category}</Badge></TableCell>
-                          <TableCell className="px-4 py-3 text-sm font-bold text-red-600 tabular-nums">{m.stock}</TableCell>
-                          <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">{m.minStock}</TableCell>
-                          <TableCell className="px-4 py-3 text-sm font-semibold tabular-nums text-foreground">{shortage}</TableCell>
+                          <TableCell className="px-4 py-3 text-sm font-bold text-red-600 tabular-nums">{formatStock(m.stock, m.tabletsPerStrip)}</TableCell>
+                          <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">{m.minStock} {tpt(m) > 1 ? 'strips' : ''}</TableCell>
+                          <TableCell className="px-4 py-3 text-sm font-semibold tabular-nums text-foreground">{shortage}{tpt(m) > 1 ? ' tab' : ''}</TableCell>
                           <TableCell className="px-4 py-3">
                             <StatusChip label={priority} />
                           </TableCell>

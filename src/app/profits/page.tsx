@@ -28,6 +28,7 @@ import {
 import { monthlySalesData, dailySalesData } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
 import { defaultSettings } from '@/lib/data';
+import { tpt, perTablet } from '@/lib/strip';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 
@@ -72,7 +73,7 @@ export default function ProfitsPage() {
   const realTotalRevenue = completedSales.reduce((sum, s) => sum + s.total, 0);
   const realTotalCost = completedSales.reduce((cost, s) => cost + s.items.reduce((c, item) => {
     const med = medicines.find(m => m.id === item.medicineId);
-    return c + (med?.purchasePrice ?? item.price * 0.4) * item.quantity;
+    return c + (med ? perTablet(med.purchasePrice, tpt(med)) : item.price * 0.4) * item.quantity;
   }, 0), 0);
   const realTotalProfit = realTotalRevenue - realTotalCost;
   const realProfitMargin = realTotalRevenue > 0 ? ((realTotalProfit / realTotalRevenue) * 100).toFixed(1) : '0.0';

@@ -17,6 +17,7 @@ export async function POST(req: Request) {
       purchasePrice: body.purchasePrice,
       sellingPrice: body.sellingPrice,
       minStock: body.minStock ?? 50,
+      tabletsPerStrip: body.tabletsPerStrip ?? 1,
     },
   });
   return NextResponse.json(medicine, { status: 201 });

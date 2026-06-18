@@ -16,6 +16,7 @@ import {
 import { defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
 import { Purchase } from '@/lib/types';
+import { formatStock } from '@/lib/strip';
 import { cn } from '@/lib/utils';
 
 const CURRENCY = defaultSettings.currencySymbol;
@@ -25,6 +26,7 @@ const emptyForm = {
   quantity: 1,
   purchasePrice: 0,
   sellingPrice: 0,
+  tabletsPerStrip: 1,
   date: new Date().toISOString().split('T')[0],
 };
 
@@ -54,6 +56,7 @@ export default function PurchasesPage() {
     if (!med) return;
     const purchasePrice = form.purchasePrice || med.purchasePrice;
     const sellingPrice = form.sellingPrice || med.sellingPrice;
+    const tabletsPerStrip = Math.max(1, Math.floor(form.tabletsPerStrip || 1));
     const payload = {
       date: new Date(form.date).toISOString(),
       medicineId: form.medicineId,
@@ -61,6 +64,7 @@ export default function PurchasesPage() {
       quantity: form.quantity,
       purchasePrice,
       sellingPrice,
+      tabletsPerStrip,
       total: form.quantity * purchasePrice,
     };
     const res = await fetch('/api/purchases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -234,7 +238,7 @@ export default function PurchasesPage() {
               <Select value={form.medicineId} onValueChange={v => {
                 if (!v) return;
                 const med = medicines.find(m => m.id === v);
-                setForm(p => ({ ...p, medicineId: v, purchasePrice: med?.purchasePrice ?? 0, sellingPrice: med?.sellingPrice ?? 0 }));
+                setForm(p => ({ ...p, medicineId: v, purchasePrice: med?.purchasePrice ?? 0, sellingPrice: med?.sellingPrice ?? 0, tabletsPerStrip: med?.tabletsPerStrip ?? 1 }));
               }}>
                 <SelectTrigger className="h-10 rounded-xl w-full">
                   <SelectValue placeholder="Select medicine">
@@ -246,16 +250,22 @@ export default function PurchasesPage() {
                 </SelectContent>
               </Select>
               {selectedMed && (
-                <p className="text-[11px] text-muted-foreground">Current stock: <span className="font-semibold">{selectedMed.stock} {selectedMed.unit}</span></p>
+                <p className="text-[11px] text-muted-foreground">Current stock: <span className="font-semibold">{formatStock(selectedMed.stock, selectedMed.tabletsPerStrip)}</span></p>
               )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quantity *</Label>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quantity (Strips) *</Label>
                 <Input type="text" inputMode="numeric" value={form.quantity === 0 ? '' : String(form.quantity)} onChange={e => f('quantity', parseInt(e.target.value.replace(/\D/g, '')) || 0)} onFocus={e => e.target.select()} className="h-10 rounded-xl" placeholder="0" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Purchase Price ({CURRENCY})</Label>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tablets Per Strip</Label>
+                <Input type="number" min="1" value={form.tabletsPerStrip === 0 ? '' : form.tabletsPerStrip} onChange={e => f('tabletsPerStrip', parseInt(e.target.value) || 1)} onFocus={e => e.target.select()} className="h-10 rounded-xl" placeholder="1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Purchase Price / Strip ({CURRENCY})</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -266,10 +276,8 @@ export default function PurchasesPage() {
                   className="h-10 rounded-xl"
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sale Price ({CURRENCY})</Label>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sale Price / Strip ({CURRENCY})</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -280,15 +288,23 @@ export default function PurchasesPage() {
                   className="h-10 rounded-xl"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Date</Label>
-                <Input type="date" value={form.date} onChange={e => f('date', e.target.value)} className="h-10 rounded-xl" />
-              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Date</Label>
+              <Input type="date" value={form.date} onChange={e => f('date', e.target.value)} className="h-10 rounded-xl" />
             </div>
             {form.quantity > 0 && form.purchasePrice > 0 && (
-              <div className="rounded-xl bg-muted px-4 py-3 flex items-center justify-between">
-                <span className="text-sm text-muted-foreground font-medium">Total Cost</span>
-                <span className="text-base font-bold text-foreground tabular-nums">{CURRENCY} {(form.quantity * form.purchasePrice).toFixed(2)}</span>
+              <div className="rounded-xl bg-muted px-4 py-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground font-medium">Total Cost</span>
+                  <span className="text-base font-bold text-foreground tabular-nums">{CURRENCY} {(form.quantity * form.purchasePrice).toFixed(2)}</span>
+                </div>
+                {Math.max(1, Math.floor(form.tabletsPerStrip || 1)) > 1 && (
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>Adds to stock</span>
+                    <span className="font-medium">{form.quantity * Math.max(1, Math.floor(form.tabletsPerStrip || 1))} tablets</span>
+                  </div>
+                )}
               </div>
             )}
           </div>

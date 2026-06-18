@@ -13,6 +13,10 @@ export async function POST(req: Request) {
   const invoiceNumber = body.invoiceNumber ||
     `PO-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
 
+  // quantity is in STRIPS; stock is tracked in tablets
+  const tabletsPerStrip = Math.max(1, Math.floor(body.tabletsPerStrip ?? 1));
+  const tabletsAdded = body.quantity * tabletsPerStrip;
+
   const purchase = await prisma.$transaction(async (tx) => {
     const newPurchase = await tx.purchase.create({
       data: {
@@ -28,12 +32,13 @@ export async function POST(req: Request) {
       },
     });
 
-    // Increment stock and update prices (buy + sale) from the purchase
+    // Increment stock (in tablets) and update prices + tablets-per-strip
     await tx.medicine.update({
       where: { id: body.medicineId },
       data: {
-        stock: { increment: body.quantity },
+        stock: { increment: tabletsAdded },
         purchasePrice: body.purchasePrice,
+        tabletsPerStrip,
         ...(typeof body.sellingPrice === 'number' && body.sellingPrice > 0
           ? { sellingPrice: body.sellingPrice }
           : {}),

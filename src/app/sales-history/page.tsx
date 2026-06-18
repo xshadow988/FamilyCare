@@ -20,6 +20,7 @@ import { defaultSettings } from '@/lib/data';
 import { printReceipt } from '@/lib/print-receipt';
 import { useAppContext } from '@/components/providers/app-context';
 import { Sale } from '@/lib/types';
+import { tpt, perTablet } from '@/lib/strip';
 import { cn } from '@/lib/utils';
 
 const CURRENCY = defaultSettings.currencySymbol;
@@ -124,7 +125,7 @@ export default function SalesHistoryPage() {
   // Net profit = revenue − cost of goods (matches dashboard / profits / reports)
   const totalCost = completedSales.reduce((cost, sale) => cost + sale.items.reduce((c, item) => {
     const med = medicines.find(m => m.id === item.medicineId);
-    return c + (med?.purchasePrice ?? item.price * 0.4) * item.quantity;
+    return c + (med ? perTablet(med.purchasePrice, tpt(med)) : item.price * 0.4) * item.quantity;
   }, 0), 0);
   const totalNetProfit = totalRevenue - totalCost;
 

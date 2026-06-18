@@ -14,6 +14,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       purchasePrice: body.purchasePrice,
       sellingPrice: body.sellingPrice,
       minStock: body.minStock,
+      tabletsPerStrip: body.tabletsPerStrip ?? 1,
     },
   });
   return NextResponse.json(medicine);

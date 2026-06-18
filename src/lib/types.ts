@@ -2,17 +2,26 @@ export interface Medicine {
   id: string;
   name: string;
   category: string;
+  /** Total stock in the smallest unit (tablets). For non-divisible items tabletsPerStrip = 1. */
   stock: number;
   unit: string;
+  /** Purchase price per strip */
   purchasePrice: number;
+  /** Selling price per strip */
   sellingPrice: number;
+  /** Low-stock alert threshold, expressed in strips */
   minStock: number;
+  /** Tablets per strip (1 = sold as whole units only) */
+  tabletsPerStrip: number;
 }
 
 export interface CartItem {
   medicine: Medicine;
-  quantity: number;
-  /** Per-line price override (defaults to medicine.sellingPrice) */
+  /** Whole strips selected */
+  strips: number;
+  /** Loose tablets selected */
+  tablets: number;
+  /** Per-tablet price override (defaults to medicine.sellingPrice / tabletsPerStrip) */
   price?: number;
 }
 
