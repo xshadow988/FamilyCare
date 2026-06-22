@@ -10,14 +10,14 @@ import { StatusChip } from '@/components/ui/status-chip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { StatCard } from '@/components/ui/stat-card';
 import {
-  Search, Plus, ShoppingBag, TrendingDown, Package, Clock, Trash2,
+  Search, Plus, ShoppingBag, Trash2,
 } from 'lucide-react';
 import { defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
 import { Purchase } from '@/lib/types';
 import { formatStock } from '@/lib/strip';
-import { cn } from '@/lib/utils';
 
 const CURRENCY = defaultSettings.currencySymbol;
 
@@ -115,23 +115,9 @@ export default function PurchasesPage() {
       <div className="p-5 space-y-4">
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            { label: 'Total Spent', value: `${CURRENCY} ${totalSpent.toLocaleString('en', { minimumFractionDigits: 2 })}`, icon: TrendingDown, color: 'text-foreground', bg: 'bg-muted' },
-            { label: 'Pending Orders', value: String(pendingCount), icon: Clock, color: 'text-foreground', bg: 'bg-muted' },
-            { label: "Today's Purchases", value: String(todayCount), icon: Package, color: 'text-foreground', bg: 'bg-muted' },
-          ].map(s => (
-            <Card key={s.label} className="shadow-sm rounded-2xl py-0 gap-0">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className={cn('h-11 w-11 rounded-xl flex items-center justify-center', s.bg)}>
-                  <s.icon className={cn('h-5 w-5', s.color)} />
-                </div>
-                <div>
-                  <p className="text-[13px] text-muted-foreground font-medium">{s.label}</p>
-                  <p className="text-xl font-bold text-foreground mt-0.5">{s.value}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          <StatCard description="Total Spent" value={`${CURRENCY} ${totalSpent.toLocaleString('en', { minimumFractionDigits: 2 })}`} footerMain="On received stock" footerSub="All purchase orders" />
+          <StatCard description="Pending Orders" value={String(pendingCount)} badge={pendingCount > 0 ? { icon: 'down', text: String(pendingCount) } : undefined} footerMain="Awaiting delivery" footerSub="Not yet received" />
+          <StatCard description="Today's Purchases" value={String(todayCount)} footerMain="Recorded today" footerSub="New stock entries" />
         </div>
 
         {/* Table */}

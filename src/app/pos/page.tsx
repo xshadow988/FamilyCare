@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Search, Plus, Minus, Trash2, ShoppingCart, Printer,
-  X, Package, Banknote, Smartphone, User, Loader2, Pencil,
+  X, Package, User, Loader2, Pencil,
 } from 'lucide-react';
 import { defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
@@ -89,6 +89,7 @@ export default function POSPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [customerName, setCustomerName] = useState('');
+  const [discount, setDiscount] = useState(0);
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastSale, setLastSale] = useState<Sale | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -163,9 +164,11 @@ export default function POSPage() {
     setCart(prev => prev.map(i => i.medicine.id === id ? { ...i, price } : i));
 
   const removeFromCart = (id: string) => setCart(prev => prev.filter(i => i.medicine.id !== id));
-  const clearCart = () => { setCart([]); setCustomerName(''); };
+  const clearCart = () => { setCart([]); setCustomerName(''); setDiscount(0); };
 
-  const total = cart.reduce((sum, i) => sum + lineTotal(i), 0);
+  const subtotal = cart.reduce((sum, i) => sum + lineTotal(i), 0);
+  const discountAmount = Math.min(Math.max(0, discount), subtotal);
+  const total = subtotal - discountAmount;
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
@@ -181,7 +184,7 @@ export default function POSPage() {
           price: priceTab(item),
           total: lineTotal(item),
         })),
-        subtotal: total, tax: 0, discount: 0, total,
+        subtotal, tax: 0, discount: discountAmount, total,
         paymentMethod,
         cashierName: 'Admin',
         customerName: customerName.trim() || undefined,
@@ -209,10 +212,10 @@ export default function POSPage() {
     searchRef.current?.focus();
   };
 
-  const paymentConfig: Record<PaymentMethod, { icon: React.ElementType; label: string }> = {
-    cash: { icon: Banknote, label: 'Cash' },
-    online: { icon: Smartphone, label: 'Online' },
-  };
+  const paymentMethods: { value: PaymentMethod; label: string }[] = [
+    { value: 'cash', label: 'Cash' },
+    { value: 'online', label: 'Online' },
+  ];
 
   return (
     <AppLayout>
@@ -480,37 +483,58 @@ export default function POSPage() {
 
           {/* ── Order Summary ── */}
           <div className="border-t bg-background shrink-0">
-            {/* Payment Method */}
-            <div className="px-4 pt-4 pb-3">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Payment Method</p>
-              <div className="grid grid-cols-2 gap-2">
-                {(Object.keys(paymentConfig) as PaymentMethod[]).map(method => {
-                  const { icon: Icon, label } = paymentConfig[method];
-                  return (
-                    <button
-                      key={method}
-                      onClick={() => setPaymentMethod(method)}
-                      className={cn(
-                        'flex flex-col items-center gap-1.5 py-2.5 rounded-xl border text-xs font-semibold transition-all',
-                        paymentMethod === method
-                          ? 'border-foreground bg-foreground text-background shadow-sm'
-                          : 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground'
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {label}
-                    </button>
-                  );
-                })}
+            {/* Payment Method — compact segmented control */}
+            <div className="px-4 pt-3 pb-2 flex items-center gap-3">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider shrink-0">Payment</span>
+              <div className="flex flex-1 rounded-lg bg-muted/60 p-0.5">
+                {paymentMethods.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setPaymentMethod(value)}
+                    className={cn(
+                      'flex-1 h-7 rounded-md text-xs font-medium transition-all',
+                      paymentMethod === value
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
 
             <Separator />
 
 
-            {/* Total Amount — prominent */}
-            <div className="px-4 pt-2 pb-8">
-              <div className="rounded-2xl bg-muted/60 px-4 py-3 flex items-center justify-between mb-4">
+            {/* Subtotal + Discount + Total */}
+            <div className="px-4 pt-2 pb-8 space-y-2.5">
+              {/* Subtotal */}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground font-medium">Subtotal</span>
+                <span className="text-foreground tabular-nums font-medium">{CURRENCY} {subtotal.toFixed(2)}</span>
+              </div>
+
+              {/* Discount (by amount) */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-muted-foreground font-medium">Discount ({CURRENCY})</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm text-muted-foreground">−</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={discount === 0 ? '' : discount}
+                    onChange={e => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                    onFocus={e => e.target.select()}
+                    disabled={cart.length === 0}
+                    placeholder="0.00"
+                    className="h-8 w-24 text-right text-sm rounded-lg tabular-nums"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-muted/60 px-4 py-3 flex items-center justify-between mt-1 mb-4">
                 <span className="text-sm font-semibold text-foreground">Total Amount</span>
                 <span className="text-2xl font-bold text-foreground tabular-nums tracking-tight">
                   {CURRENCY} {total.toFixed(2)}
@@ -607,6 +631,9 @@ export default function POSPage() {
               {lastSale && (
                 <div className="space-y-1.5 pb-3 border-b border-dashed">
                   <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums">{CURRENCY} {lastSale.subtotal.toFixed(2)}</span></div>
+                  {lastSale.discount > 0 && (
+                    <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span className="tabular-nums">− {CURRENCY} {lastSale.discount.toFixed(2)}</span></div>
+                  )}
                   <div className="flex justify-between"><span className="text-muted-foreground">Tax ({defaultSettings.taxPercentage}%)</span><span className="tabular-nums">{CURRENCY} {lastSale.tax.toFixed(2)}</span></div>
                   <div className="flex justify-between font-bold text-sm pt-1.5 border-t border-dashed">
                     <span className="text-foreground">TOTAL</span>

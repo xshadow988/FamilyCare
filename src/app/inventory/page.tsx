@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
+import { StatCard } from '@/components/ui/stat-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -153,20 +154,11 @@ export default function InventoryPage() {
     <AppLayout>
       <div className="p-5 space-y-4">
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: 'Total Medicines', value: medicines.length },
-            { label: 'In Stock', value: medicines.filter(m => !isLowStock(m) && !isOutStock(m)).length },
-            { label: 'Low Stock', value: lowStockCount },
-            { label: 'Out of Stock', value: outCount },
-          ].map(s => (
-            <Card key={s.label} className="shadow-sm py-0 gap-0">
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground font-medium mb-1.5">{s.label}</p>
-                <p className="text-2xl font-bold text-foreground">{s.value}</p>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard description="Total Medicines" value={String(medicines.length)} footerMain="Distinct products" footerSub="In your catalog" />
+          <StatCard description="In Stock" value={String(medicines.filter(m => !isLowStock(m) && !isOutStock(m)).length)} badge={{ icon: 'up', text: 'Healthy' }} footerMain="Above minimum level" footerSub="Well-stocked items" />
+          <StatCard description="Low Stock" value={String(lowStockCount)} badge={lowStockCount > 0 ? { icon: 'down', text: String(lowStockCount) } : undefined} footerMain="Needs restocking soon" footerSub="At or below minimum" />
+          <StatCard description="Out of Stock" value={String(outCount)} badge={outCount > 0 ? { icon: 'down', text: 'Critical' } : undefined} footerMain="Currently unavailable" footerSub="Restock required" />
         </div>
 
         {/* Main Table */}

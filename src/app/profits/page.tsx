@@ -2,6 +2,7 @@
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { StatCard } from '@/components/ui/stat-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -49,20 +50,6 @@ const lastMonth = monthlySalesData[monthlySalesData.length - 2];
 const monthlyProfitChange = lastMonth.profit > 0 ? (((thisMonth.profit - lastMonth.profit) / lastMonth.profit) * 100).toFixed(1) : '0.0';
 
 
-function StatCard({ title, value, sub }: {
-  title: string; value: string; sub?: string;
-}) {
-  return (
-    <Card className="shadow-sm py-0 gap-0">
-      <CardContent className="p-4">
-        <p className="text-xs font-medium text-muted-foreground mb-2">{title}</p>
-        <p className="text-xl font-bold text-foreground tracking-tight leading-none">{value}</p>
-        {sub && <p className="text-[11px] text-muted-foreground mt-1.5">{sub}</p>}
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function ProfitsPage() {
   const { medicines, sales } = useAppContext();
   const { resolvedTheme } = useTheme();
@@ -92,12 +79,12 @@ export default function ProfitsPage() {
     <AppLayout>
       <div className="p-5 space-y-4">
         {/* Financial KPIs */}
-        <div className="grid grid-cols-2 xl:grid-cols-5 gap-4">
-          <StatCard title="Total Revenue" value={`${CURRENCY} ${realTotalRevenue.toFixed(2)}`} sub="From all sales" />
-          <StatCard title="Total Cost" value={`${CURRENCY} ${realTotalCost.toFixed(2)}`} sub="Purchase cost" />
-          <StatCard title="Net Profit" value={`${CURRENCY} ${realTotalProfit.toFixed(2)}`} sub="Revenue − Cost" />
-          <StatCard title="Profit Margin" value={`${realProfitMargin}%`} sub="Average margin" />
-          <StatCard title="Total Orders" value={String(completedSales.length)} sub="Completed sales" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <StatCard description="Total Revenue" value={`${CURRENCY} ${realTotalRevenue.toFixed(2)}`} footerMain="From all sales" footerSub="Completed orders" />
+          <StatCard description="Total Cost" value={`${CURRENCY} ${realTotalCost.toFixed(2)}`} footerMain="Cost of goods sold" footerSub="Purchase cost" />
+          <StatCard description="Net Profit" value={`${CURRENCY} ${realTotalProfit.toFixed(2)}`} badge={{ icon: realTotalProfit >= 0 ? 'up' : 'down', text: realTotalProfit >= 0 ? 'Profit' : 'Loss' }} footerMain="Revenue minus cost" footerSub="After all costs" />
+          <StatCard description="Profit Margin" value={`${realProfitMargin}%`} badge={{ icon: 'up', text: `${realProfitMargin}%` }} footerMain="Average margin" footerSub="Profit ÷ revenue" />
+          <StatCard description="Total Orders" value={String(completedSales.length)} footerMain="Completed sales" footerSub="Total transactions" />
         </div>
 
         {/* Charts */}

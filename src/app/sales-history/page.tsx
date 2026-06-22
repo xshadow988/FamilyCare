@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardAction, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,8 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  Search, Eye, Printer, Receipt, TrendingUp, DollarSign,
-  ShoppingCart, Filter, RotateCcw, AlertTriangle, CalendarRange, Trash2, Wallet,
+  Search, Eye, Printer, Receipt, TrendingUp, TrendingDown,
+  Filter, RotateCcw, AlertTriangle, CalendarRange, Trash2, Tag,
 } from 'lucide-react';
 import { defaultSettings } from '@/lib/data';
 import { printReceipt } from '@/lib/print-receipt';
@@ -48,6 +48,12 @@ const PAYMENT_LABELS: Record<string, string> = {
   insurance: 'Insurance',
 };
 
+const DISCOUNT_LABELS: Record<string, string> = {
+  all: 'All Records',
+  with: 'With Discount',
+  without: 'No Discount',
+};
+
 
 function PaymentBadge({ method }: { method: Sale['paymentMethod'] }) {
   const cls = 'bg-muted text-muted-foreground';
@@ -60,6 +66,7 @@ export default function SalesHistoryPage() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [paymentFilter, setPaymentFilter] = useState('All');
   const [periodFilter, setPeriodFilter] = useState('all');
+  const [discountFilter, setDiscountFilter] = useState('all');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   const [reverting, setReverting] = useState(false);
@@ -116,7 +123,10 @@ export default function SalesHistoryPage() {
     const matchStatus = statusFilter === 'All' || s.status === statusFilter;
     const matchPayment = paymentFilter === 'All' || s.paymentMethod === paymentFilter;
     const matchPeriod = periodCutoff === null || new Date(s.date).getTime() >= periodCutoff;
-    return matchSearch && matchStatus && matchPayment && matchPeriod;
+    const matchDiscount = discountFilter === 'all'
+      || (discountFilter === 'with' && s.discount > 0)
+      || (discountFilter === 'without' && s.discount <= 0);
+    return matchSearch && matchStatus && matchPayment && matchPeriod && matchDiscount;
   });
 
   const completedSales = filtered.filter(s => s.status === 'completed');
@@ -128,30 +138,46 @@ export default function SalesHistoryPage() {
     return c + (med ? perTablet(med.purchasePrice, tpt(med)) : item.price * 0.4) * item.quantity;
   }, 0), 0);
   const totalNetProfit = totalRevenue - totalCost;
+  const totalDiscount = completedSales.reduce((s, sale) => s + (sale.discount || 0), 0);
+  const discountedCount = completedSales.filter(s => s.discount > 0).length;
+  // Profit if no discounts had been applied (revenue + discounts − cost)
+  const netProfitNoDiscount = totalNetProfit + totalDiscount;
 
   return (
     <AppLayout>
       <div className="p-5 space-y-4">
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
-            { label: 'Total Transactions', value: String(filtered.length), icon: ShoppingCart, color: 'text-foreground', bg: 'bg-muted' },
-            { label: 'Total Revenue', value: `${CURRENCY} ${totalRevenue.toFixed(2)}`, icon: DollarSign, color: 'text-foreground', bg: 'bg-muted' },
-            { label: 'Total Net Profit', value: `${CURRENCY} ${totalNetProfit.toFixed(2)}`, icon: Wallet, color: 'text-foreground', bg: 'bg-muted' },
-            { label: 'Completed Sales', value: String(completedCount), icon: TrendingUp, color: 'text-foreground', bg: 'bg-muted' },
-          ].map(s => (
-            <Card key={s.label} className="shadow-sm rounded-2xl py-0 gap-0">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className={cn('h-11 w-11 rounded-xl flex items-center justify-center shrink-0', s.bg)}>
-                  <s.icon className={cn('h-5 w-5', s.color)} />
-                </div>
-                <div>
-                  <p className="text-[13px] text-muted-foreground font-medium">{s.label}</p>
-                  <p className="text-xl font-bold text-foreground mt-0.5">{s.value}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+            { desc: 'Total Revenue', value: `${CURRENCY} ${totalRevenue.toFixed(2)}`, footerMain: 'Completed sales revenue', footerSub: 'After discounts applied' },
+            { desc: 'Net Profit (Actual)', value: `${CURRENCY} ${totalNetProfit.toFixed(2)}`, badge: { kind: (totalNetProfit >= 0 ? 'up' : 'down') as 'up' | 'down' | 'tag', text: totalNetProfit >= 0 ? 'Profit' : 'Loss' }, footerMain: 'Profit after discounts', footerSub: 'Revenue minus cost' },
+            { desc: 'Net Profit (Before Discounts)', value: `${CURRENCY} ${netProfitNoDiscount.toFixed(2)}`, footerMain: 'Profit without discounts', footerSub: `−${CURRENCY} ${totalDiscount.toFixed(2)} lost to discounts` },
+            { desc: 'Total Discount', value: `${CURRENCY} ${totalDiscount.toFixed(2)}`, badge: { kind: 'tag' as 'up' | 'down' | 'tag', text: `${discountedCount}` }, footerMain: 'Discounts provided', footerSub: `Across ${discountedCount} receipt${discountedCount === 1 ? '' : 's'}` },
+            { desc: 'Total Transactions', value: String(filtered.length), footerMain: 'All transactions in view', footerSub: 'Matches current filters' },
+            { desc: 'Completed Sales', value: String(completedCount), footerMain: 'Completed transactions', footerSub: 'Excludes refunds' },
+          ].map(c => {
+            const badge = (c as { badge?: { kind: 'up' | 'down' | 'tag'; text: string } }).badge;
+            return (
+              <Card key={c.desc} className="@container/card">
+                <CardHeader>
+                  <CardDescription>{c.desc}</CardDescription>
+                  <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">{c.value}</CardTitle>
+                  {badge && (
+                    <CardAction>
+                      <Badge variant="outline">
+                        {badge.kind === 'tag' ? <Tag /> : badge.kind === 'up' ? <TrendingUp /> : <TrendingDown />}
+                        {badge.text}
+                      </Badge>
+                    </CardAction>
+                  )}
+                </CardHeader>
+                <CardFooter className="flex-col items-start gap-1.5 text-sm">
+                  <div className="line-clamp-1 flex gap-2 font-medium">{c.footerMain}</div>
+                  <div className="text-muted-foreground">{c.footerSub}</div>
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Table */}
@@ -198,6 +224,17 @@ export default function SalesHistoryPage() {
                     <SelectItem value="cash">Cash</SelectItem>
                     <SelectItem value="card">Card</SelectItem>
                     <SelectItem value="insurance">Insurance</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={discountFilter} onValueChange={v => { if (v) setDiscountFilter(v); }}>
+                  <SelectTrigger className="w-36 h-9 text-sm border-0 bg-muted/50 rounded-xl">
+                    <Tag className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                    <SelectValue>{DISCOUNT_LABELS[discountFilter]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Records</SelectItem>
+                    <SelectItem value="with">With Discount</SelectItem>
+                    <SelectItem value="without">No Discount</SelectItem>
                   </SelectContent>
                 </Select>
                 {/* TEMP: reset data button — remove later */}
@@ -254,7 +291,12 @@ export default function SalesHistoryPage() {
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-3"><PaymentBadge method={sale.paymentMethod} /></TableCell>
-                    <TableCell className="px-4 py-3 font-bold text-sm text-foreground tabular-nums">{CURRENCY} {sale.total.toFixed(2)}</TableCell>
+                    <TableCell className="px-4 py-3 tabular-nums">
+                      <span className="font-bold text-sm text-foreground">{CURRENCY} {sale.total.toFixed(2)}</span>
+                      {sale.discount > 0 && (
+                        <span className="block text-[11px] font-medium text-emerald-600 dark:text-emerald-400">−{CURRENCY} {sale.discount.toFixed(2)} disc</span>
+                      )}
+                    </TableCell>
                     <TableCell className="px-4 py-3 text-xs text-muted-foreground">{new Date(sale.date).toLocaleString()}</TableCell>
                     <TableCell className="px-4 py-3"><StatusChip label={sale.status.charAt(0).toUpperCase() + sale.status.slice(1)} /></TableCell>
                     <TableCell className="px-4 py-3">
