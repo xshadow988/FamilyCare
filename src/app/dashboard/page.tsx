@@ -19,8 +19,6 @@ import {
   Legend,
 } from 'recharts';
 import {
-  TrendingUp,
-  TrendingDown,
   DollarSign,
   Package,
   AlertTriangle,
@@ -32,44 +30,12 @@ import {
 } from 'lucide-react';
 import { dailySalesData, monthlySalesData, defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
+import { StatCard } from '@/components/ui/stat-card';
 import { tpt, perTablet, isLowStock } from '@/lib/strip';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 const CURRENCY = defaultSettings.currencySymbol;
-
-function StatCard({
-  title,
-  value,
-  change,
-  trend,
-  subtext,
-}: {
-  title: string;
-  value: string;
-  change?: string;
-  trend?: 'up' | 'down' | 'neutral';
-  subtext?: string;
-}) {
-  return (
-    <Card className="py-0 gap-0 shadow-sm">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-medium text-muted-foreground">{title}</p>
-          {change && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-muted border text-muted-foreground">
-              {trend === 'up' && <TrendingUp className="h-2.5 w-2.5" />}
-              {trend === 'down' && <TrendingDown className="h-2.5 w-2.5" />}
-              {change}
-            </span>
-          )}
-        </div>
-        <p className="text-xl font-bold text-foreground tracking-tight leading-none">{value}</p>
-        {subtext && <p className="text-[11px] text-muted-foreground mt-1.5">{subtext}</p>}
-      </CardContent>
-    </Card>
-  );
-}
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number; name: string; color: string }[]; label?: string }) => {
   if (active && payload && payload.length) {
@@ -122,33 +88,38 @@ export default function DashboardPage() {
     <AppLayout>
       <div className="p-5 space-y-4">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <StatCard
-            title="Today's Sales"
+            description="Today's Sales"
             value={`${CURRENCY} ${todayRevenue.toFixed(2)}`}
-            subtext="Completed today"
+            footerMain="Sales completed today"
+            footerSub="Revenue so far"
           />
           <StatCard
-            title="Total Revenue"
+            description="Total Revenue"
             value={`${CURRENCY} ${monthlyRevenue.toFixed(2)}`}
-            subtext="All completed sales"
+            footerMain="All completed sales"
+            footerSub="Lifetime revenue"
           />
           <StatCard
-            title="Net Profit"
+            description="Net Profit"
             value={`${CURRENCY} ${monthlyProfit.toFixed(2)}`}
-            subtext="Revenue minus costs"
+            badge={{ icon: monthlyProfit >= 0 ? 'up' : 'down', text: monthlyProfit >= 0 ? 'Profit' : 'Loss' }}
+            footerMain="Revenue minus costs"
+            footerSub="After all costs"
           />
           <StatCard
-            title="Total Medicines"
+            description="Total Medicines"
             value={medicines.length.toString()}
-            subtext="In inventory"
+            footerMain="In inventory"
+            footerSub="Distinct products"
           />
           <StatCard
-            title="Low Stock"
+            description="Low Stock"
             value={lowStockMeds.length.toString()}
-            change={lowStockMeds.length > 0 ? `${lowStockMeds.length} items` : undefined}
-            trend={lowStockMeds.length > 0 ? 'down' : undefined}
-            subtext="Below minimum"
+            badge={lowStockMeds.length > 0 ? { icon: 'down', text: `${lowStockMeds.length} items` } : undefined}
+            footerMain="Below minimum"
+            footerSub="Need restocking"
           />
         </div>
 
