@@ -32,14 +32,18 @@ const emptyForm = {
 
 
 export default function PurchasesPage() {
-  const { medicines, setMedicines, purchases, setPurchases, setSales } = useAppContext();
+  const { medicines, setMedicines, purchases, setPurchases, setSales, categories } = useAppContext();
   const [search, setSearch] = useState('');
   const [showDialog, setShowDialog] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [categoryFilter, setCategoryFilter] = useState('All');
   const [deleteTarget, setDeleteTarget] = useState<Purchase | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const selectedMed = medicines.find(m => m.id === form.medicineId);
+  const medicineOptions = categoryFilter === 'All'
+    ? medicines
+    : medicines.filter(m => m.category === categoryFilter);
 
   const filtered = purchases.filter(p => {
     const q = search.toLowerCase();
@@ -75,6 +79,7 @@ export default function PurchasesPage() {
     setMedicines(await medsRes.json());
     setShowDialog(false);
     setForm(emptyForm);
+    setCategoryFilter('All');
   };
 
   const handleDelete = async () => {
@@ -139,7 +144,7 @@ export default function PurchasesPage() {
                   <Trash2 className="h-3.5 w-3.5" /> Reset Data
                 </Button>
                 <Button
-                  onClick={() => { if (medicines.length === 0) return; setShowDialog(true); }}
+                  onClick={() => { if (medicines.length === 0) return; setForm(emptyForm); setCategoryFilter('All'); setShowDialog(true); }}
                   size="sm"
                   className="h-9 gap-1.5 text-sm bg-foreground hover:bg-foreground/90 text-background"
                   disabled={medicines.length === 0}
@@ -225,6 +230,7 @@ export default function PurchasesPage() {
                 if (!v) return;
                 const med = medicines.find(m => m.id === v);
                 setForm(p => ({ ...p, medicineId: v, purchasePrice: med?.purchasePrice ?? 0, sellingPrice: med?.sellingPrice ?? 0, tabletsPerStrip: med?.tabletsPerStrip ?? 1 }));
+                if (med) setCategoryFilter(med.category);
               }}>
                 <SelectTrigger className="h-10 rounded-xl w-full">
                   <SelectValue placeholder="Select medicine">
@@ -232,12 +238,36 @@ export default function PurchasesPage() {
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {medicines.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  {medicineOptions.length === 0
+                    ? <div className="px-3 py-4 text-xs text-muted-foreground text-center">No medicines in this category</div>
+                    : medicineOptions.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                 </SelectContent>
               </Select>
               {selectedMed && (
                 <p className="text-[11px] text-muted-foreground">Current stock: <span className="font-semibold">{formatStock(selectedMed.stock, selectedMed.tabletsPerStrip)}</span></p>
               )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Category</Label>
+              <Select value={categoryFilter} onValueChange={v => {
+                if (!v) return;
+                setCategoryFilter(v);
+                // Clear medicine if it no longer matches the chosen category
+                if (v !== 'All' && selectedMed && selectedMed.category !== v) {
+                  setForm(p => ({ ...p, medicineId: '' }));
+                }
+              }}>
+                <SelectTrigger className="h-10 rounded-xl w-full">
+                  <SelectValue placeholder="All categories">
+                    {categoryFilter === 'All' ? 'All categories' : categoryFilter}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All categories</SelectItem>
+                  {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -249,31 +279,29 @@ export default function PurchasesPage() {
                 <Input type="number" min="1" value={form.tabletsPerStrip === 0 ? '' : form.tabletsPerStrip} onChange={e => f('tabletsPerStrip', parseInt(e.target.value) || 1)} onFocus={e => e.target.select()} className="h-10 rounded-xl" placeholder="1" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Purchase Price / Strip ({CURRENCY})</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={form.purchasePrice === 0 ? '' : form.purchasePrice}
-                  onChange={e => f('purchasePrice', parseFloat(e.target.value) || 0)}
-                  placeholder="0.00"
-                  className="h-10 rounded-xl"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sale Price / Strip ({CURRENCY})</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={form.sellingPrice === 0 ? '' : form.sellingPrice}
-                  onChange={e => f('sellingPrice', parseFloat(e.target.value) || 0)}
-                  placeholder="0.00"
-                  className="h-10 rounded-xl"
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Purchase Price / Strip ({CURRENCY})</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.purchasePrice === 0 ? '' : form.purchasePrice}
+                onChange={e => f('purchasePrice', parseFloat(e.target.value) || 0)}
+                placeholder="0.00"
+                className="h-10 rounded-xl w-full"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sale Price / Strip ({CURRENCY})</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.sellingPrice === 0 ? '' : form.sellingPrice}
+                onChange={e => f('sellingPrice', parseFloat(e.target.value) || 0)}
+                placeholder="0.00"
+                className="h-10 rounded-xl w-full"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Date</Label>
