@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Search, Eye, Printer, Receipt, TrendingUp, TrendingDown,
-  Filter, RotateCcw, AlertTriangle, CalendarRange, Trash2, Tag,
+  Filter, RotateCcw, AlertTriangle, CalendarRange, Tag,
 } from 'lucide-react';
 import { defaultSettings } from '@/lib/data';
 import { printReceipt } from '@/lib/print-receipt';
@@ -61,7 +61,7 @@ function PaymentBadge({ method }: { method: Sale['paymentMethod'] }) {
 }
 
 export default function SalesHistoryPage() {
-  const { sales, setSales, medicines, setMedicines, setPurchases } = useAppContext();
+  const { sales, setSales, medicines, setMedicines } = useAppContext();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [paymentFilter, setPaymentFilter] = useState('All');
@@ -103,19 +103,6 @@ export default function SalesHistoryPage() {
       default: return null;
     }
   })();
-
-  // TEMP: reset all sales history + purchases (remove this later)
-  const handleResetData = async () => {
-    if (!confirm('Reset ALL Sales History and Purchases data? This cannot be undone. (Medicines & stock are kept.)')) return;
-    try {
-      const res = await fetch('/api/reset/history', { method: 'POST' });
-      if (!res.ok) throw new Error('Failed');
-      setSales([]);
-      setPurchases([]);
-    } catch {
-      alert('Could not reset data. Please try again.');
-    }
-  };
 
   const filtered = sales.filter(s => {
     const q = search.toLowerCase();
@@ -237,15 +224,6 @@ export default function SalesHistoryPage() {
                     <SelectItem value="without">No Discount</SelectItem>
                   </SelectContent>
                 </Select>
-                {/* TEMP: reset data button — remove later */}
-                <Button
-                  onClick={handleResetData}
-                  size="sm"
-                  variant="outline"
-                  className="h-9 gap-1.5 text-sm border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/40 dark:hover:bg-red-950/20"
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Reset Data
-                </Button>
               </div>
             </div>
           </CardHeader>
