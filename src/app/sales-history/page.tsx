@@ -12,10 +12,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Search, Eye, Printer, Receipt, TrendingUp, TrendingDown,
   Filter, RotateCcw, AlertTriangle, CalendarRange, Tag,
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { type DateRange } from 'react-day-picker';
 import { defaultSettings } from '@/lib/data';
 import { printReceipt } from '@/lib/print-receipt';
 import { useAppContext } from '@/components/providers/app-context';
@@ -32,6 +36,7 @@ const PERIOD_LABELS: Record<string, string> = {
   biweekly: 'Bi-Weekly',
   monthly: 'Monthly',
   bimonthly: 'Bi-Monthly',
+  custom: 'Custom Range',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -67,6 +72,8 @@ export default function SalesHistoryPage() {
   const [paymentFilter, setPaymentFilter] = useState('All');
   const [periodFilter, setPeriodFilter] = useState('all');
   const [discountFilter, setDiscountFilter] = useState('all');
+  const [customRange, setCustomRange] = useState<DateRange | undefined>();
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   const [reverting, setReverting] = useState(false);
@@ -104,12 +111,22 @@ export default function SalesHistoryPage() {
     }
   })();
 
+  const inCustomRange = (dateStr: string) => {
+    if (!customRange?.from) return true;
+    const t = new Date(dateStr).getTime();
+    const start = new Date(customRange.from); start.setHours(0, 0, 0, 0);
+    const end = new Date(customRange.to ?? customRange.from); end.setHours(23, 59, 59, 999);
+    return t >= start.getTime() && t <= end.getTime();
+  };
+
   const filtered = sales.filter(s => {
     const q = search.toLowerCase();
     const matchSearch = !q || s.invoiceNumber.toLowerCase().includes(q) || (s.customerName ?? '').toLowerCase().includes(q);
     const matchStatus = statusFilter === 'All' || s.status === statusFilter;
     const matchPayment = paymentFilter === 'All' || s.paymentMethod === paymentFilter;
-    const matchPeriod = periodCutoff === null || new Date(s.date).getTime() >= periodCutoff;
+    const matchPeriod = periodFilter === 'custom'
+      ? inCustomRange(s.date)
+      : (periodCutoff === null || new Date(s.date).getTime() >= periodCutoff);
     const matchDiscount = discountFilter === 'all'
       || (discountFilter === 'with' && s.discount > 0)
       || (discountFilter === 'without' && s.discount <= 0);
@@ -176,7 +193,11 @@ export default function SalesHistoryPage() {
                 <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search invoices, patients..." className="pl-9 h-9 text-sm bg-muted/50 border-0 focus-visible:ring-1 rounded-xl" />
               </div>
               <div className="flex gap-2 flex-wrap">
-                <Select value={periodFilter} onValueChange={v => { if (v) setPeriodFilter(v); }}>
+                <Select value={periodFilter} onValueChange={v => {
+                  if (!v) return;
+                  setPeriodFilter(v);
+                  if (v === 'custom') setCalendarOpen(true);
+                }}>
                   <SelectTrigger className="w-40 h-9 text-sm border-0 bg-muted/50 rounded-xl">
                     <CalendarRange className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                     <SelectValue>{PERIOD_LABELS[periodFilter]}</SelectValue>
@@ -188,8 +209,33 @@ export default function SalesHistoryPage() {
                     <SelectItem value="biweekly">Bi-Weekly</SelectItem>
                     <SelectItem value="monthly">Monthly</SelectItem>
                     <SelectItem value="bimonthly">Bi-Monthly</SelectItem>
+                    <SelectItem value="custom">Custom…</SelectItem>
                   </SelectContent>
                 </Select>
+
+                {periodFilter === 'custom' && (
+                  <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                    <PopoverTrigger className="inline-flex items-center h-9 px-3 text-sm rounded-xl bg-muted/50 text-foreground hover:bg-muted transition-colors">
+                      <CalendarRange className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                      {customRange?.from
+                        ? customRange.to
+                          ? `${format(customRange.from, 'dd MMM')} – ${format(customRange.to, 'dd MMM yyyy')}`
+                          : format(customRange.from, 'dd MMM yyyy')
+                        : 'Pick date(s)'}
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-auto p-0">
+                      <Calendar
+                        mode="range"
+                        numberOfMonths={2}
+                        defaultMonth={customRange?.from}
+                        selected={customRange}
+                        onSelect={setCustomRange}
+                        disabled={(date) => date > new Date() || date < new Date('2020-01-01')}
+                        autoFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
                 <Select value={statusFilter} onValueChange={v => { if (v) setStatusFilter(v); }}>
                   <SelectTrigger className="w-36 h-9 text-sm border-0 bg-muted/50 rounded-xl">
                     <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
