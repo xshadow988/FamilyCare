@@ -215,13 +215,15 @@ export default function SalesHistoryPage() {
 
                 {periodFilter === 'custom' && (
                   <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                    <PopoverTrigger className="inline-flex items-center h-9 px-3 text-sm rounded-xl bg-muted/50 text-foreground hover:bg-muted transition-colors">
-                      <CalendarRange className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-                      {customRange?.from
-                        ? customRange.to
-                          ? `${format(customRange.from, 'dd MMM')} – ${format(customRange.to, 'dd MMM yyyy')}`
-                          : format(customRange.from, 'dd MMM yyyy')
-                        : 'Pick date(s)'}
+                    <PopoverTrigger className="inline-flex items-center gap-1.5 w-52 shrink-0 h-9 px-3 text-sm rounded-xl bg-muted/50 text-foreground hover:bg-muted transition-colors overflow-hidden">
+                      <CalendarRange className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="truncate">
+                        {customRange?.from
+                          ? customRange.to
+                            ? `${format(customRange.from, 'dd MMM')} – ${format(customRange.to, 'dd MMM yyyy')}`
+                            : format(customRange.from, 'dd MMM yyyy')
+                          : 'Pick date(s)'}
+                      </span>
                     </PopoverTrigger>
                     <PopoverContent align="start" className="w-auto p-0">
                       <Calendar
