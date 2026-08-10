@@ -7,13 +7,14 @@ const name = process.argv[2] || 'Backup-Version1';
 
 await connectWithRetry();
 
-const [medicines, categories, sales, saleItems, purchases] = await Promise.all([
-  prisma.medicine.findMany({ orderBy: { createdAt: 'asc' } }),
-  prisma.category.findMany({ orderBy: { name: 'asc' } }),
-  prisma.sale.findMany({ orderBy: { createdAt: 'asc' } }),
-  prisma.saleItem.findMany(),
-  prisma.purchase.findMany({ orderBy: { createdAt: 'asc' } }),
-]);
+// Sequential on purpose. Neon allows few connections and a running dev server
+// holds some of them, so issuing these in parallel exhausts the pool and fails
+// with P2024. A backup has no deadline — one connection at a time is fine.
+const medicines = await prisma.medicine.findMany({ orderBy: { createdAt: 'asc' } });
+const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
+const sales = await prisma.sale.findMany({ orderBy: { createdAt: 'asc' } });
+const saleItems = await prisma.saleItem.findMany();
+const purchases = await prisma.purchase.findMany({ orderBy: { createdAt: 'asc' } });
 
 const backup = {
   name,
