@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatCard } from '@/components/ui/stat-card';
 import {
-  Search, Plus, ShoppingBag, Trash2,
+  Search, Plus, ShoppingBag, Trash2, CalendarRange,
 } from 'lucide-react';
 import { defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
@@ -20,6 +20,15 @@ import { Purchase } from '@/lib/types';
 import { formatStock } from '@/lib/strip';
 
 const CURRENCY = defaultSettings.currencySymbol;
+
+// Rolling windows, matching the period filter in Sales History.
+const PERIOD_LABELS: Record<string, string> = {
+  all: 'All Time',
+  daily: 'Daily (Today)',
+  weekly: 'Weekly',
+  biweekly: 'Bi-Weekly',
+  monthly: 'Monthly',
+};
 
 const emptyForm = {
   medicineId: '',
@@ -37,6 +46,7 @@ export default function PurchasesPage() {
   const [showDialog, setShowDialog] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [categoryFilter, setCategoryFilter] = useState('All');
+  const [periodFilter, setPeriodFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState<Purchase | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -45,14 +55,30 @@ export default function PurchasesPage() {
     ? medicines
     : medicines.filter(m => m.category === categoryFilter);
 
-  const filtered = purchases.filter(p => {
-    const q = search.toLowerCase();
-    return !q || p.medicineName.toLowerCase().includes(q) || p.invoiceNumber.toLowerCase().includes(q);
-  });
+  // Cutoff timestamp for the selected period — purchases on/after it pass.
+  const periodCutoff = useMemo(() => {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    switch (periodFilter) {
+      case 'daily': { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
+      case 'weekly': return now - 7 * dayMs;
+      case 'biweekly': return now - 14 * dayMs;
+      case 'monthly': return now - 30 * dayMs;
+      default: return null;
+    }
+  }, [periodFilter]);
 
-  const totalSpent = purchases.filter(p => p.status === 'received').reduce((s, p) => s + p.total, 0);
-  const pendingCount = purchases.filter(p => p.status === 'pending').length;
-  const todayCount = purchases.filter(p => p.date.startsWith(new Date().toISOString().split('T')[0])).length;
+  const filtered = useMemo(() => purchases.filter(p => {
+    const q = search.toLowerCase();
+    const matchSearch = !q || p.medicineName.toLowerCase().includes(q) || p.invoiceNumber.toLowerCase().includes(q);
+    const matchPeriod = periodCutoff === null || new Date(p.date).getTime() >= periodCutoff;
+    return matchSearch && matchPeriod;
+  }), [purchases, search, periodCutoff]);
+
+  // Stats reflect the current filters, as they do in Sales History.
+  const totalSpent = filtered.filter(p => p.status === 'received').reduce((s, p) => s + p.total, 0);
+  const pendingCount = filtered.filter(p => p.status === 'pending').length;
+  const periodLabel = PERIOD_LABELS[periodFilter];
 
   const handleAdd = async () => {
     if (!form.medicineId) return;
@@ -107,18 +133,33 @@ export default function PurchasesPage() {
       <div className="p-5 space-y-4">
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatCard description="Total Spent" value={`${CURRENCY} ${totalSpent.toLocaleString('en', { minimumFractionDigits: 2 })}`} footerMain="On received stock" footerSub="All purchase orders" />
+          <StatCard description="Total Spent" value={`${CURRENCY} ${totalSpent.toLocaleString('en', { minimumFractionDigits: 2 })}`} footerMain="On received stock" footerSub={periodLabel} />
           <StatCard description="Pending Orders" value={String(pendingCount)} badge={pendingCount > 0 ? { icon: 'down', text: String(pendingCount) } : undefined} footerMain="Awaiting delivery" footerSub="Not yet received" />
-          <StatCard description="Today's Purchases" value={String(todayCount)} footerMain="Recorded today" footerSub="New stock entries" />
+          <StatCard description="Purchase Orders" value={String(filtered.length)} footerMain="Entries in view" footerSub="Matches current filters" />
         </div>
 
         {/* Table */}
         <Card className="shadow-sm rounded-2xl">
           <CardHeader className="px-6 pt-3 pb-0">
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search purchases..." className="pl-9 h-9 text-sm bg-muted/50 border-0 focus-visible:ring-1 rounded-xl" />
+              <div className="flex flex-1 flex-wrap items-center gap-2">
+                <div className="relative flex-1 min-w-50 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search purchases..." className="pl-9 h-9 text-sm bg-muted/50 border-0 focus-visible:ring-1 rounded-xl" />
+                </div>
+                <Select value={periodFilter} onValueChange={v => { if (v) setPeriodFilter(v); }}>
+                  <SelectTrigger className="w-40 h-9 text-sm border-0 bg-muted/50 rounded-xl">
+                    <CalendarRange className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                    <SelectValue>{PERIOD_LABELS[periodFilter]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Time</SelectItem>
+                    <SelectItem value="daily">Daily (Today)</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="biweekly">Bi-Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <Button
                 onClick={() => { if (medicines.length === 0) return; setForm(emptyForm); setCategoryFilter('All'); setShowDialog(true); }}
@@ -158,8 +199,14 @@ export default function PurchasesPage() {
                           <ShoppingBag className="h-7 w-7 text-muted-foreground/40" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-foreground">No purchases yet</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Record your first stock purchase above</p>
+                          <p className="text-sm font-semibold text-foreground">
+                            {purchases.length === 0 ? 'No purchases yet' : 'No purchases match these filters'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {purchases.length === 0
+                              ? 'Record your first stock purchase above'
+                              : `Nothing recorded for “${periodLabel}”${search ? ' with this search' : ''}`}
+                          </p>
                         </div>
                       </div>
                     </TableCell>
@@ -200,6 +247,29 @@ export default function PurchasesPage() {
             <DialogTitle className="text-base font-semibold">New Purchase Order</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-3">
+            {/* Category first — it narrows the medicine list below it. */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Category</Label>
+              <Select value={categoryFilter} onValueChange={v => {
+                if (!v) return;
+                setCategoryFilter(v);
+                // Clear medicine if it no longer matches the chosen category
+                if (v !== 'All' && selectedMed && selectedMed.category !== v) {
+                  setForm(p => ({ ...p, medicineId: '' }));
+                }
+              }}>
+                <SelectTrigger className="h-10 rounded-xl w-full">
+                  <SelectValue placeholder="All categories">
+                    {categoryFilter === 'All' ? 'All categories' : categoryFilter}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All categories</SelectItem>
+                  {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Medicine *</Label>
               <Select value={form.medicineId} onValueChange={v => {
@@ -222,28 +292,6 @@ export default function PurchasesPage() {
               {selectedMed && (
                 <p className="text-[11px] text-muted-foreground">Current stock: <span className="font-semibold">{formatStock(selectedMed.stock, selectedMed.tabletsPerStrip)}</span></p>
               )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Category</Label>
-              <Select value={categoryFilter} onValueChange={v => {
-                if (!v) return;
-                setCategoryFilter(v);
-                // Clear medicine if it no longer matches the chosen category
-                if (v !== 'All' && selectedMed && selectedMed.category !== v) {
-                  setForm(p => ({ ...p, medicineId: '' }));
-                }
-              }}>
-                <SelectTrigger className="h-10 rounded-xl w-full">
-                  <SelectValue placeholder="All categories">
-                    {categoryFilter === 'All' ? 'All categories' : categoryFilter}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All categories</SelectItem>
-                  {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
