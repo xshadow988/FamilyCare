@@ -12,14 +12,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatCard } from '@/components/ui/stat-card';
 import {
-  Search, Plus, ShoppingBag, Trash2, CalendarRange,
+  Search, Plus, ShoppingBag, Trash2, CalendarRange, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
 import { Purchase } from '@/lib/types';
 import { formatStock } from '@/lib/strip';
+import { cn } from '@/lib/utils';
 
 const CURRENCY = defaultSettings.currencySymbol;
+const PAGE_SIZE = 10;
 
 // Rolling windows, matching the period filter in Sales History.
 const PERIOD_LABELS: Record<string, string> = {
@@ -47,6 +49,7 @@ export default function PurchasesPage() {
   const [form, setForm] = useState(emptyForm);
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [periodFilter, setPeriodFilter] = useState('all');
+  const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Purchase | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -68,12 +71,22 @@ export default function PurchasesPage() {
     }
   }, [periodFilter]);
 
+  // Sort by the date the table actually shows. The API returns createdAt order,
+  // so a back-dated entry used to jump to the top and made the Date column read
+  // out of sequence, as if older history were missing.
   const filtered = useMemo(() => purchases.filter(p => {
     const q = search.toLowerCase();
     const matchSearch = !q || p.medicineName.toLowerCase().includes(q) || p.invoiceNumber.toLowerCase().includes(q);
     const matchPeriod = periodCutoff === null || new Date(p.date).getTime() >= periodCutoff;
     return matchSearch && matchPeriod;
+  }).sort((a, b) => {
+    const d = new Date(b.date).getTime() - new Date(a.date).getTime();
+    return d !== 0 ? d : b.invoiceNumber.localeCompare(a.invoiceNumber);
   }), [purchases, search, periodCutoff]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // Stats reflect the current filters, as they do in Sales History.
   const totalSpent = filtered.filter(p => p.status === 'received').reduce((s, p) => s + p.total, 0);
@@ -106,6 +119,7 @@ export default function PurchasesPage() {
     setShowDialog(false);
     setForm(emptyForm);
     setCategoryFilter('All');
+    setPage(1); // jump back to where the new entry will appear
   };
 
   const handleDelete = async () => {
@@ -145,9 +159,9 @@ export default function PurchasesPage() {
               <div className="flex flex-1 flex-wrap items-center gap-2">
                 <div className="relative flex-1 min-w-50 max-w-sm">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search purchases..." className="pl-9 h-9 text-sm bg-muted/50 border-0 focus-visible:ring-1 rounded-xl" />
+                  <Input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search purchases..." className="pl-9 h-9 text-sm bg-muted/50 border-0 focus-visible:ring-1 rounded-xl" />
                 </div>
-                <Select value={periodFilter} onValueChange={v => { if (v) setPeriodFilter(v); }}>
+                <Select value={periodFilter} onValueChange={v => { if (v) { setPeriodFilter(v); setPage(1); } }}>
                   <SelectTrigger className="w-40 h-9 text-sm border-0 bg-muted/50 rounded-xl">
                     <CalendarRange className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                     <SelectValue>{PERIOD_LABELS[periodFilter]}</SelectValue>
@@ -191,7 +205,7 @@ export default function PurchasesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length === 0 ? (
+                {paginated.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-30">
                       <div className="flex flex-col items-center gap-3">
@@ -211,7 +225,7 @@ export default function PurchasesPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ) : filtered.map(p => (
+                ) : paginated.map(p => (
                   <TableRow key={p.id} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="px-4 py-3">
                       <p className="text-sm font-semibold text-foreground">{p.invoiceNumber}</p>
@@ -236,6 +250,40 @@ export default function PurchasesPage() {
                 ))}
               </TableBody>
             </Table>
+
+            {/* Pagination */}
+            {filtered.length > 0 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t">
+                <p className="text-xs text-muted-foreground">
+                  {((safePage - 1) * PAGE_SIZE) + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
+                </p>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}>
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                      .map((p, idx, arr) => (
+                        <span key={p} className="contents">
+                          {idx > 0 && arr[idx - 1] !== p - 1 && <span className="text-muted-foreground px-0.5 text-xs">…</span>}
+                          <Button
+                            variant={safePage === p ? 'default' : 'ghost'}
+                            size="icon"
+                            className={cn('h-7 w-7 text-xs rounded-full', safePage === p && 'bg-foreground hover:bg-foreground/90 text-background')}
+                            onClick={() => setPage(p)}
+                          >
+                            {p}
+                          </Button>
+                        </span>
+                      ))}
+                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -34,8 +34,11 @@ export async function connectWithRetry({ attempts = 6, delayMs = 4000 } = {}) {
       return;
     } catch (err) {
       // P1001 = cannot reach server; P2024 = pool gave up waiting on a cold one.
+      // A cold start can also surface as PrismaClientInitializationError, which
+      // carries no .code at all — so match the message too.
+      const msg = String(err?.message ?? '');
       const retryable = err?.code === 'P1001' || err?.code === 'P2024'
-        || /Timed out fetching a new connection/.test(err?.message ?? '');
+        || /Timed out fetching a new connection|Can't reach database server/.test(msg);
       if (!retryable || i === attempts) throw err;
       console.log(`Database asleep, waking… (attempt ${i}/${attempts})`);
       await new Promise(r => setTimeout(r, delayMs));
