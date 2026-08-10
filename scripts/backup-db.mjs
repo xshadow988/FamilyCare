@@ -1,11 +1,11 @@
 // Full snapshot of the PRODUCTION Neon database → backups/<name>.json
 // Usage: node scripts/backup-db.mjs [backupName]
-import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
 import { writeFileSync, mkdirSync } from 'fs';
+import { prisma, connectWithRetry } from './_db.mjs';
 
 const name = process.argv[2] || 'Backup-Version1';
-const prisma = new PrismaClient();
+
+await connectWithRetry();
 
 const [medicines, categories, sales, saleItems, purchases] = await Promise.all([
   prisma.medicine.findMany({ orderBy: { createdAt: 'asc' } }),

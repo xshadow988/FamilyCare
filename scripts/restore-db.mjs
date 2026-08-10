@@ -1,9 +1,8 @@
 // Restore the PRODUCTION Neon database from a backup JSON.
 // REPLACES all current data. Dry-run by default; pass --confirm to apply.
 // Usage: node scripts/restore-db.mjs [backupName] --confirm
-import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
 import { readFileSync } from 'fs';
+import { prisma, connectWithRetry } from './_db.mjs';
 
 const name = process.argv.find(a => !a.startsWith('--') && !a.endsWith('.mjs') && a !== process.argv[0] && a !== process.argv[1]) || 'Backup-Version1';
 const confirm = process.argv.includes('--confirm');
@@ -17,7 +16,8 @@ if (!confirm) {
   process.exit(0);
 }
 
-const prisma = new PrismaClient();
+await connectWithRetry();
+
 const { medicines, categories, sales, saleItems, purchases } = backup.data;
 const d = (v) => (v ? new Date(v) : v);
 

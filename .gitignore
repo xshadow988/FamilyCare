@@ -47,3 +47,7 @@ prisma/schema.local.prisma
 prisma/*.db
 prisma/*.db-journal
 prisma/seed-local.mjs
+
+# Database snapshots — these contain live pharmacy data (cost prices, sales,
+# customer names). This repo is public, so they must stay on local disk only.
+/backups/*.json
