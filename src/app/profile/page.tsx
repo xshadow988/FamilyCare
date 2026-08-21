@@ -13,6 +13,7 @@ import { AlertTriangle, User, Building2, Phone, Mail, MapPin, RotateCcw, CheckCi
 import { defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
 import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/api';
 
 export default function ProfilePage() {
   const { reload } = useAppContext();
@@ -25,7 +26,7 @@ export default function ProfilePage() {
     if (confirmText !== 'RESET') return;
     setResetting(true);
     try {
-      await fetch('/api/reset', { method: 'POST' });
+      await apiFetch('/api/reset', { method: 'POST' });
       await reload();
       setResetDone(true);
       setTimeout(() => {

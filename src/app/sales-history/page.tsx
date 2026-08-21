@@ -26,6 +26,7 @@ import { useAppContext } from '@/components/providers/app-context';
 import { Sale } from '@/lib/types';
 import { tpt, perTablet } from '@/lib/strip';
 import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/api';
 
 const CURRENCY = defaultSettings.currencySymbol;
 
@@ -82,11 +83,11 @@ export default function SalesHistoryPage() {
     if (!selectedSale) return;
     setReverting(true);
     try {
-      const res = await fetch(`/api/sales/${selectedSale.id}/revert`, { method: 'POST' });
+      const res = await apiFetch(`/api/sales/${selectedSale.id}/revert`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed');
       // Update local state — mark sale refunded and restore stock
       setSales(prev => prev.map(s => s.id === selectedSale.id ? { ...s, status: 'refunded' as const } : s));
-      const medsRes = await fetch('/api/medicines');
+      const medsRes = await apiFetch('/api/medicines');
       setMedicines(await medsRes.json());
       setSelectedSale(prev => prev ? { ...prev, status: 'refunded' } : null);
       setShowRevertConfirm(false);

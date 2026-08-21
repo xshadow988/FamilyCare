@@ -20,6 +20,19 @@ commit one. (`backups/Backup-Version1.json` predates that rule and is already pu
 history.) The `master` branch on GitHub is a stale "Initial commit" and is GitHub's configured
 default; all real work and deploys come from `main`.
 
+## Demo mode (the `demo` account)
+
+`demo` / `demo1234` is a sandbox account for product pitches. It starts empty and keeps everything
+in `localStorage`; it is wiped on logout and 24h after login (the clock is `demoStartedAt` on the
+session record, **not** the sandbox's own timestamp — the data can be cleared independently by
+whichever provider mounts first, which would hide the expiry).
+
+The isolation guarantee is that [src/lib/api.ts](src/lib/api.ts) never calls `fetch` for a demo
+session; [src/lib/demo-store.ts](src/lib/demo-store.ts) contains no network code at all. **Every
+`/api/...` call in the app must go through `apiFetch`, never raw `fetch`** — a raw `fetch` added
+later would silently punch a hole straight to the production database. `demo-store.ts` mirrors the
+route handlers in `src/app/api/`, so changing a route's behaviour means changing both.
+
 ## Units: the one thing that bites
 
 `Medicine.stock` is stored **in tablets** (the smallest unit). Everything else is not:

@@ -22,6 +22,7 @@ import { useAppContext } from '@/components/providers/app-context';
 import { Medicine } from '@/lib/types';
 import { tpt, perTablet, splitStock, formatStock, isLowStock, isOutStock } from '@/lib/strip';
 import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/api';
 
 const CURRENCY = defaultSettings.currencySymbol;
 const PAGE_SIZE = 10;
@@ -54,7 +55,7 @@ export default function InventoryPage() {
     const trimmed = newCategoryInput.trim();
     if (!trimmed || categories.includes(trimmed)) return;
     try {
-      const res = await fetch('/api/categories', {
+      const res = await apiFetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: trimmed }),
@@ -70,7 +71,7 @@ export default function InventoryPage() {
   };
 
   const removeCategory = async (cat: string) => {
-    await fetch(`/api/categories/${encodeURIComponent(cat)}`, { method: 'DELETE' });
+    await apiFetch(`/api/categories/${encodeURIComponent(cat)}`, { method: 'DELETE' });
     setCategories(prev => prev.filter(c => c !== cat));
   };
   const [search, setSearch] = useState('');
@@ -125,11 +126,11 @@ export default function InventoryPage() {
       stock: formData.stockStrips * tps + formData.stockTablets,
     };
     if (editMed) {
-      const res = await fetch(`/api/medicines/${editMed.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const res = await apiFetch(`/api/medicines/${editMed.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const updated = await res.json();
       setMedicines(prev => prev.map(m => m.id === editMed.id ? updated : m));
     } else {
-      const res = await fetch('/api/medicines', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const res = await apiFetch('/api/medicines', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const created = await res.json();
       setMedicines(prev => [...prev, created]);
     }
@@ -138,7 +139,7 @@ export default function InventoryPage() {
 
   const handleDelete = async () => {
     if (deleteId) {
-      await fetch(`/api/medicines/${deleteId}`, { method: 'DELETE' });
+      await apiFetch(`/api/medicines/${deleteId}`, { method: 'DELETE' });
       setMedicines(prev => prev.filter(m => m.id !== deleteId));
     }
     setDeleteId(null);

@@ -39,6 +39,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <Navbar />
+        {user.isDemo && (
+          <div className="shrink-0 bg-amber-500 px-4 py-1.5 text-center text-xs font-semibold text-amber-950">
+            Demo mode — sample data only, stored in this browser. Nothing here is saved to the pharmacy database, and it clears when you log out.
+          </div>
+        )}
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>

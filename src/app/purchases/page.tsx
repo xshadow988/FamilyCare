@@ -19,6 +19,7 @@ import { useAppContext } from '@/components/providers/app-context';
 import { Purchase } from '@/lib/types';
 import { formatStock } from '@/lib/strip';
 import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/api';
 
 const CURRENCY = defaultSettings.currencySymbol;
 const PAGE_SIZE = 10;
@@ -110,11 +111,11 @@ export default function PurchasesPage() {
       tabletsPerStrip,
       total: form.quantity * purchasePrice,
     };
-    const res = await fetch('/api/purchases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const res = await apiFetch('/api/purchases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const saved = await res.json();
     setPurchases(prev => [saved, ...prev]);
     // Refresh stock from server
-    const medsRes = await fetch('/api/medicines');
+    const medsRes = await apiFetch('/api/medicines');
     setMedicines(await medsRes.json());
     setShowDialog(false);
     setForm(emptyForm);
@@ -126,11 +127,11 @@ export default function PurchasesPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/purchases/${deleteTarget.id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/purchases/${deleteTarget.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed');
       setPurchases(prev => prev.filter(p => p.id !== deleteTarget.id));
       // Stock was reversed server-side — refresh medicines
-      const medsRes = await fetch('/api/medicines');
+      const medsRes = await apiFetch('/api/medicines');
       setMedicines(await medsRes.json());
       setDeleteTarget(null);
     } catch {

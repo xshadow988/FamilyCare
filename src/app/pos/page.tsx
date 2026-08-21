@@ -19,6 +19,7 @@ import { Medicine, CartItem, Sale } from '@/lib/types';
 import { tpt, perTablet, isLowStock, isOutStock } from '@/lib/strip';
 import { printReceipt } from '@/lib/print-receipt';
 import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/api';
 
 const CURRENCY = defaultSettings.currencySymbol;
 type PaymentMethod = 'cash' | 'online';
@@ -190,11 +191,11 @@ export default function POSPage() {
         customerName: customerName.trim() || undefined,
         status: 'completed',
       };
-      const res = await fetch('/api/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const res = await apiFetch('/api/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const savedSale = await res.json();
       setSales(prev => [savedSale, ...prev]);
       // Refresh medicine stock from server
-      const medsRes = await fetch('/api/medicines');
+      const medsRes = await apiFetch('/api/medicines');
       setMedicines(await medsRes.json());
       setLastSale(savedSale);
       setIsProcessing(false);

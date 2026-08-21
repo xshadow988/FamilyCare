@@ -28,6 +28,7 @@ import { AppSettings } from '@/lib/types';
 import { useTheme } from 'next-themes';
 import { useAppContext } from '@/components/providers/app-context';
 import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/api';
 
 const CURRENCY = defaultSettings.currencySymbol;
 
@@ -59,7 +60,7 @@ export default function SettingsPage() {
     if (confirmText !== 'RESET') return;
     setResetting(true);
     try {
-      await fetch('/api/reset', { method: 'POST' });
+      await apiFetch('/api/reset', { method: 'POST' });
       await reload();
       setResetDone(true);
       setTimeout(() => { setShowResetDialog(false); setResetDone(false); setConfirmText(''); }, 1500);

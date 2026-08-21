@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode, type Dispatch, type SetStateAction } from 'react';
 import type { Medicine, Sale, Purchase } from '@/lib/types';
+import { apiFetch } from '@/lib/api';
 
 interface AppContextType {
   medicines: Medicine[];
@@ -20,10 +21,10 @@ const AppContext = createContext<AppContextType | null>(null);
 
 async function fetchAll() {
   const [meds, sls, purch, cats] = await Promise.all([
-    fetch('/api/medicines').then(r => r.json()),
-    fetch('/api/sales').then(r => r.json()),
-    fetch('/api/purchases').then(r => r.json()),
-    fetch('/api/categories').then(r => r.json()),
+    apiFetch('/api/medicines').then(r => r.json()),
+    apiFetch('/api/sales').then(r => r.json()),
+    apiFetch('/api/purchases').then(r => r.json()),
+    apiFetch('/api/categories').then(r => r.json()),
   ]);
   return { meds, sls, purch, cats };
 }
