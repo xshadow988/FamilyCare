@@ -33,6 +33,14 @@ session; [src/lib/demo-store.ts](src/lib/demo-store.ts) contains no network code
 later would silently punch a hole straight to the production database. `demo-store.ts` mirrors the
 route handlers in `src/app/api/`, so changing a route's behaviour means changing both.
 
+Equally important: **never load data before the session is known.** `AppProvider` waits on
+`useAuth()` and only fetches once a user resolves. Fetching on mount instead runs while the user is
+still on `/login`, where `isDemoSession()` is false — so it hits the real API and loads live
+pharmacy data into context, and because logging in is a client-side navigation the provider never
+remounts and the demo user keeps seeing it. This shipped once and reached production; a cold Neon
+start made the fetch fail silently in local testing and hid it. Test demo isolation with a **warm**
+database, and record network traffic from before the first navigation.
+
 ## Units: the one thing that bites
 
 `Medicine.stock` is stored **in tablets** (the smallest unit). Everything else is not:

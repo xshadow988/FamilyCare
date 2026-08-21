@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode, type Dispatch, type SetStateAction } from 'react';
 import type { Medicine, Sale, Purchase } from '@/lib/types';
 import { apiFetch } from '@/lib/api';
+import { useAuth } from './auth-context';
 
 interface AppContextType {
   medicines: Medicine[];
@@ -30,6 +31,7 @@ async function fetchAll() {
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const { user, isLoading: authLoading } = useAuth();
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -50,7 +52,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  useEffect(() => { reload(); }, []);
+  // Load only once we know who is signed in, and reload whenever that changes.
+  //
+  // Fetching on mount instead would run while the user is still on /login with
+  // no session: apiFetch would see no demo flag, hit the real API, and load the
+  // live pharmacy's data into this context. Logging in as `demo` afterwards is
+  // a client-side navigation, so the provider never remounts and the demo user
+  // would keep seeing production numbers.
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setMedicines([]);
+      setSales([]);
+      setPurchases([]);
+      setCategories([]);
+      setIsLoaded(true);
+      return;
+    }
+    setIsLoaded(false);
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user?.username, user?.isDemo]);
 
   return (
     <AppContext.Provider value={{
