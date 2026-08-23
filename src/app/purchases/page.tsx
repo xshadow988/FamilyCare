@@ -11,6 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatCard } from '@/components/ui/stat-card';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { type DateRange } from 'react-day-picker';
 import {
   Search, Plus, ShoppingBag, Trash2, CalendarRange, ChevronLeft, ChevronRight,
 } from 'lucide-react';
@@ -24,14 +28,23 @@ import { apiFetch } from '@/lib/api';
 const CURRENCY = defaultSettings.currencySymbol;
 const PAGE_SIZE = 10;
 
-// Rolling windows, matching the period filter in Sales History.
+// Rolling windows, matching the period filter in Sales History — except
+// `thismonth` and `custom`, which are true calendar ranges.
 const PERIOD_LABELS: Record<string, string> = {
   all: 'All Time',
   daily: 'Daily (Today)',
   weekly: 'Weekly',
   biweekly: 'Bi-Weekly',
-  monthly: 'Monthly',
+  monthly: 'Monthly (30 days)',
+  thismonth: 'This Month',
+  custom: 'Custom Range',
 };
+
+/** First and last instant of the calendar month containing `d`. */
+const monthBounds = (d: Date) => ({
+  from: new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0),
+  to: new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999),
+});
 
 const emptyForm = {
   medicineId: '',
@@ -50,6 +63,8 @@ export default function PurchasesPage() {
   const [form, setForm] = useState(emptyForm);
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [periodFilter, setPeriodFilter] = useState('all');
+  const [customRange, setCustomRange] = useState<DateRange | undefined>();
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Purchase | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -59,7 +74,7 @@ export default function PurchasesPage() {
     ? medicines
     : medicines.filter(m => m.category === categoryFilter);
 
-  // Cutoff timestamp for the selected period — purchases on/after it pass.
+  // Cutoff timestamp for the rolling periods — purchases on/after it pass.
   const periodCutoff = useMemo(() => {
     const dayMs = 24 * 60 * 60 * 1000;
     const now = Date.now();
@@ -72,18 +87,38 @@ export default function PurchasesPage() {
     }
   }, [periodFilter]);
 
+  // Calendar-based periods need both ends, not just a cutoff.
+  const dateWindow = useMemo((): { from: Date; to: Date } | null => {
+    if (periodFilter === 'thismonth') return monthBounds(new Date());
+    if (periodFilter === 'custom' && customRange?.from) {
+      const from = new Date(customRange.from); from.setHours(0, 0, 0, 0);
+      const to = new Date(customRange.to ?? customRange.from); to.setHours(23, 59, 59, 999);
+      return { from, to };
+    }
+    return null;
+  }, [periodFilter, customRange]);
+
+  // Days that actually have purchases, so the calendar shows where activity is.
+  const purchaseDays = useMemo(
+    () => purchases.map(p => { const d = new Date(p.date); d.setHours(12, 0, 0, 0); return d; }),
+    [purchases],
+  );
+
   // Sort by the date the table actually shows. The API returns createdAt order,
   // so a back-dated entry used to jump to the top and made the Date column read
   // out of sequence, as if older history were missing.
   const filtered = useMemo(() => purchases.filter(p => {
     const q = search.toLowerCase();
     const matchSearch = !q || p.medicineName.toLowerCase().includes(q) || p.invoiceNumber.toLowerCase().includes(q);
-    const matchPeriod = periodCutoff === null || new Date(p.date).getTime() >= periodCutoff;
+    const t = new Date(p.date).getTime();
+    const matchPeriod = dateWindow
+      ? t >= dateWindow.from.getTime() && t <= dateWindow.to.getTime()
+      : periodCutoff === null || t >= periodCutoff;
     return matchSearch && matchPeriod;
   }).sort((a, b) => {
     const d = new Date(b.date).getTime() - new Date(a.date).getTime();
     return d !== 0 ? d : b.invoiceNumber.localeCompare(a.invoiceNumber);
-  }), [purchases, search, periodCutoff]);
+  }), [purchases, search, periodCutoff, dateWindow]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -92,7 +127,17 @@ export default function PurchasesPage() {
   // Stats reflect the current filters, as they do in Sales History.
   const totalSpent = filtered.filter(p => p.status === 'received').reduce((s, p) => s + p.total, 0);
   const pendingCount = filtered.filter(p => p.status === 'pending').length;
-  const periodLabel = PERIOD_LABELS[periodFilter];
+  // Name the window the way the user picked it — actual dates read better than
+  // "Custom Range" on the stat card and in the empty state.
+  const periodLabel = periodFilter === 'custom'
+    ? (customRange?.from
+        ? customRange.to
+          ? `${format(customRange.from, 'dd MMM')} – ${format(customRange.to, 'dd MMM yyyy')}`
+          : format(customRange.from, 'dd MMM yyyy')
+        : 'Custom Range (no dates picked)')
+    : periodFilter === 'thismonth'
+      ? format(new Date(), 'MMMM yyyy')
+      : PERIOD_LABELS[periodFilter];
 
   const handleAdd = async () => {
     if (!form.medicineId) return;
@@ -162,8 +207,13 @@ export default function PurchasesPage() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search purchases..." className="pl-9 h-9 text-sm bg-muted/50 border-0 focus-visible:ring-1 rounded-xl" />
                 </div>
-                <Select value={periodFilter} onValueChange={v => { if (v) { setPeriodFilter(v); setPage(1); } }}>
-                  <SelectTrigger className="w-40 h-9 text-sm border-0 bg-muted/50 rounded-xl">
+                <Select value={periodFilter} onValueChange={v => {
+                  if (!v) return;
+                  setPeriodFilter(v);
+                  setPage(1);
+                  if (v === 'custom') setCalendarOpen(true);
+                }}>
+                  <SelectTrigger className="w-44 h-9 text-sm border-0 bg-muted/50 rounded-xl">
                     <CalendarRange className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                     <SelectValue>{PERIOD_LABELS[periodFilter]}</SelectValue>
                   </SelectTrigger>
@@ -172,9 +222,62 @@ export default function PurchasesPage() {
                     <SelectItem value="daily">Daily (Today)</SelectItem>
                     <SelectItem value="weekly">Weekly</SelectItem>
                     <SelectItem value="biweekly">Bi-Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="monthly">Monthly (30 days)</SelectItem>
+                    <SelectItem value="thismonth">This Month</SelectItem>
+                    <SelectItem value="custom">Custom Range…</SelectItem>
                   </SelectContent>
                 </Select>
+
+                {periodFilter === 'custom' && (
+                  <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                    <PopoverTrigger className="inline-flex items-center gap-1.5 w-56 shrink-0 h-9 px-3 text-sm rounded-xl bg-muted/50 text-foreground hover:bg-muted transition-colors overflow-hidden">
+                      <CalendarRange className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="truncate">
+                        {customRange?.from
+                          ? customRange.to
+                            ? `${format(customRange.from, 'dd MMM')} – ${format(customRange.to, 'dd MMM yyyy')}`
+                            : format(customRange.from, 'dd MMM yyyy')
+                          : 'Pick date(s)'}
+                      </span>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-auto p-0">
+                      <Calendar
+                        mode="range"
+                        numberOfMonths={2}
+                        defaultMonth={customRange?.from ?? new Date()}
+                        selected={customRange}
+                        onSelect={r => { setCustomRange(r); setPage(1); }}
+                        disabled={(date) => date > new Date() || date < new Date('2020-01-01')}
+                        // Bold the days that actually have purchase orders, so the
+                        // month view doubles as a map of when stock was bought.
+                        modifiers={{ hasPurchase: purchaseDays }}
+                        modifiersStyles={{
+                          hasPurchase: {
+                            fontWeight: 700,
+                            textDecoration: 'underline',
+                            textDecorationColor: 'var(--primary)',
+                            textDecorationThickness: '2px',
+                            textUnderlineOffset: '3px',
+                          },
+                        }}
+                        autoFocus
+                      />
+                      <div className="flex items-center justify-between gap-2 border-t px-3 py-2">
+                        <p className="text-[11px] text-muted-foreground">
+                          <span className="font-semibold text-foreground underline decoration-primary decoration-2 underline-offset-2">Underlined</span> days have purchases
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => { setCustomRange(undefined); setPage(1); }}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
               </div>
               <Button
                 onClick={() => { if (medicines.length === 0) return; setForm(emptyForm); setCategoryFilter('All'); setShowDialog(true); }}
