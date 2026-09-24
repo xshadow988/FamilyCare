@@ -221,7 +221,7 @@ export default function SalesHistoryPage() {
                           <span className={cn('text-xs', e.muted ? 'text-muted-foreground' : 'text-muted-foreground')}>{e.label}</span>
                           <span className={cn(
                             'shrink-0 text-xs tabular-nums',
-                            e.strong ? 'font-bold text-foreground' : e.muted ? 'font-semibold text-blue-600' : 'font-semibold text-foreground',
+                            e.strong ? 'font-bold text-foreground' : e.muted ? 'font-semibold text-emerald-600 dark:text-emerald-400' : 'font-semibold text-foreground',
                           )}>{e.value}</span>
                         </div>
                       ))}

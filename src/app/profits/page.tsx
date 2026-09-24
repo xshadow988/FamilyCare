@@ -243,7 +243,7 @@ export default function ProfitsPage() {
                 </div>
                 <div className="flex items-center justify-between py-1.5 text-sm">
                   <span className="text-muted-foreground">Of that, <span className="font-semibold text-foreground">not yet sold</span></span>
-                  <span className={cn('font-semibold tabular-nums', stockNotYetSold >= 0 ? 'text-blue-600' : 'text-muted-foreground')}>
+                  <span className={cn('font-semibold tabular-nums', stockNotYetSold >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')}>
                     {money(stockNotYetSold)}
                   </span>
                 </div>
