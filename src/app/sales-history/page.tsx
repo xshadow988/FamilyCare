@@ -166,7 +166,8 @@ export default function SalesHistoryPage() {
     <AppLayout>
       <div className="p-5 space-y-4">
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* 12-col grid: money figures 3-up on row one, counts 4-up on row two */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
           {[
             { desc: 'Total Revenue', value: money(totalRevenue), footerMain: 'Completed sales revenue', footerSub: 'After discounts applied' },
             {
@@ -175,21 +176,29 @@ export default function SalesHistoryPage() {
               badge: { kind: (totalNetProfit >= 0 ? 'up' : 'down') as 'up' | 'down' | 'tag', text: totalNetProfit >= 0 ? 'Profit' : 'Loss' },
               footerMain: 'Profit after discounts',
               footerSub: 'Revenue minus cost of goods sold',
+            },
+            {
+              desc: 'Cash After Stock',
+              value: money(cashDifference),
+              badge: { kind: 'tag' as 'up' | 'down' | 'tag', text: 'Cash' },
+              footerMain: 'Revenue minus stock purchased',
+              footerSub: 'Money in, minus money spent on stock',
               extra: [
                 { label: 'Stock purchased', value: money(stockPurchased) },
-                { label: 'Revenue − stock purchased', value: money(cashDifference), strong: true },
-                { label: 'Stock not yet sold', value: money(stockNotYetSold), muted: true },
+                { label: 'Bought, not yet sold', value: '+' + money(stockNotYetSold), muted: true },
               ],
+              note: 'This is cash, not profit. The unsold stock is inventory you still own — its profit arrives when it sells.',
             },
             { desc: 'Net Profit (Before Discounts)', value: money(netProfitNoDiscount), footerMain: 'Profit without discounts', footerSub: `−${money(totalDiscount)} lost to discounts` },
             { desc: 'Total Discount', value: money(totalDiscount), badge: { kind: 'tag' as 'up' | 'down' | 'tag', text: `${discountedCount}` }, footerMain: 'Discounts provided', footerSub: `Across ${discountedCount} receipt${discountedCount === 1 ? '' : 's'}` },
             { desc: 'Total Transactions', value: String(filtered.length), footerMain: 'All transactions in view', footerSub: 'Matches current filters' },
             { desc: 'Completed Sales', value: String(completedCount), footerMain: 'Completed transactions', footerSub: 'Excludes refunds' },
-          ].map(c => {
+          ].map((c, i) => {
             const badge = (c as { badge?: { kind: 'up' | 'down' | 'tag'; text: string } }).badge;
             const extra = (c as { extra?: { label: string; value: string; strong?: boolean; muted?: boolean }[] }).extra;
+            const note = (c as { note?: string }).note;
             return (
-              <Card key={c.desc} className="@container/card">
+              <Card key={c.desc} className={cn('@container/card', i < 3 ? 'lg:col-span-4' : 'lg:col-span-3')}>
                 <CardHeader>
                   <CardDescription>{c.desc}</CardDescription>
                   <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">{c.value}</CardTitle>
@@ -216,9 +225,9 @@ export default function SalesHistoryPage() {
                           )}>{e.value}</span>
                         </div>
                       ))}
-                      <p className="pt-0.5 text-[10px] leading-snug text-muted-foreground">
-                        Cash view, not profit. Unsold stock is inventory you still own.
-                      </p>
+                      {note && (
+                        <p className="pt-0.5 text-[10px] leading-snug text-muted-foreground">{note}</p>
+                      )}
                     </div>
                   )}
                 </CardFooter>
