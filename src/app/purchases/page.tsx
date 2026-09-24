@@ -23,6 +23,7 @@ import { useAppContext } from '@/components/providers/app-context';
 import { Purchase } from '@/lib/types';
 import { formatStock } from '@/lib/strip';
 import { cn } from '@/lib/utils';
+import { money } from '@/lib/money';
 import { PERIOD_LABELS, monthBounds, rangeBounds, inPeriod, type DateWindow } from '@/lib/period';
 import { apiFetch } from '@/lib/api';
 
@@ -298,9 +299,9 @@ export default function PurchasesPage() {
                     </TableCell>
                     <TableCell className="px-4 py-3 text-sm font-medium text-foreground">{p.medicineName}</TableCell>
                     <TableCell className="px-4 py-3 text-sm font-semibold tabular-nums">{p.quantity.toLocaleString()}</TableCell>
-                    <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">{CURRENCY} {p.purchasePrice.toFixed(2)}</TableCell>
-                    <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">{CURRENCY} {p.sellingPrice.toFixed(2)}</TableCell>
-                    <TableCell className="px-4 py-3 text-sm font-bold tabular-nums text-foreground">{CURRENCY} {p.total.toFixed(2)}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">{money(p.purchasePrice)}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">{money(p.sellingPrice)}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm font-bold tabular-nums text-foreground">{money(p.total)}</TableCell>
                     <TableCell className="px-4 py-3 text-sm text-muted-foreground">{new Date(p.date).toLocaleDateString()}</TableCell>
                     <TableCell className="px-4 py-3"><StatusChip label={p.status.charAt(0).toUpperCase() + p.status.slice(1)} /></TableCell>
                     <TableCell className="px-2 py-3">
@@ -449,7 +450,7 @@ export default function PurchasesPage() {
               <div className="rounded-xl bg-muted px-4 py-3 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground font-medium">Total Cost</span>
-                  <span className="text-base font-bold text-foreground tabular-nums">{CURRENCY} {(form.quantity * form.purchasePrice).toFixed(2)}</span>
+                  <span className="text-base font-bold text-foreground tabular-nums">{money((form.quantity * form.purchasePrice))}</span>
                 </div>
                 {Math.max(1, Math.floor(form.tabletsPerStrip || 1)) > 1 && (
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground">

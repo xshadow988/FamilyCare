@@ -25,6 +25,7 @@ import { defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
 import { tpt, perTablet, formatStock } from '@/lib/strip';
 import { cn } from '@/lib/utils';
+import { money } from '@/lib/money';
 
 const CURRENCY = defaultSettings.currencySymbol;
 
@@ -180,7 +181,7 @@ export default function ReportsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-base font-semibold">Sales Report</CardTitle>
-                    <CardDescription>{dateFrom} to {dateTo} · {filteredSales.length} transactions · {CURRENCY}{salesRevenue.toFixed(2)} total</CardDescription>
+                    <CardDescription>{dateFrom} to {dateTo} · {filteredSales.length} transactions · {money(salesRevenue)} total</CardDescription>
                   </div>
                   <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport}>
                     <Download className="h-3.5 w-3.5" /> CSV
@@ -209,7 +210,7 @@ export default function ReportsPage() {
                         <TableCell className="px-4 py-3 text-sm text-foreground">{sale.customerName ?? 'Walk-in'}</TableCell>
                         <TableCell className="px-4 py-3 text-sm text-foreground">{sale.items.length}</TableCell>
                         <TableCell className="px-4 py-3 text-sm capitalize text-foreground">{sale.paymentMethod}</TableCell>
-                        <TableCell className="px-4 py-3 text-sm font-bold tabular-nums text-foreground">{CURRENCY} {sale.total.toFixed(2)}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm font-bold tabular-nums text-foreground">{money(sale.total)}</TableCell>
                         <TableCell className="px-4 py-3 text-sm text-muted-foreground">{new Date(sale.date).toLocaleDateString()}</TableCell>
                         <TableCell className="px-4 py-3">
                           <StatusChip label={sale.status.charAt(0).toUpperCase() + sale.status.slice(1)} />
@@ -252,9 +253,9 @@ export default function ReportsPage() {
                         <TableCell className="px-4 py-3 text-sm font-semibold text-foreground">{m.name}</TableCell>
                         <TableCell className="px-4 py-3"><Badge variant="secondary" className="text-[10px]">{m.category}</Badge></TableCell>
                         <TableCell className={cn('px-4 py-3 text-sm font-semibold tabular-nums', m.stock <= m.minStock * tpt(m) ? 'text-red-600' : 'text-foreground')}>{formatStock(m.stock, m.tabletsPerStrip)}</TableCell>
-                        <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">{CURRENCY} {m.purchasePrice.toFixed(2)}</TableCell>
-                        <TableCell className="px-4 py-3 text-sm tabular-nums font-medium text-foreground">{CURRENCY} {m.sellingPrice.toFixed(2)}</TableCell>
-                        <TableCell className="px-4 py-3 text-sm tabular-nums font-semibold text-foreground">{CURRENCY} {(m.stock * perTablet(m.sellingPrice, tpt(m))).toFixed(2)}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">{money(m.purchasePrice)}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm tabular-nums font-medium text-foreground">{money(m.sellingPrice)}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm tabular-nums font-semibold text-foreground">{money((m.stock * perTablet(m.sellingPrice, tpt(m))))}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -294,9 +295,9 @@ export default function ReportsPage() {
                       return (
                         <TableRow key={m.month} className="hover:bg-muted/30">
                           <TableCell className="px-4 py-3 text-sm font-semibold text-foreground">{m.month}</TableCell>
-                          <TableCell className="px-4 py-3 text-sm tabular-nums text-foreground font-medium">{CURRENCY} {m.revenue.toFixed(2)}</TableCell>
-                          <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">{CURRENCY} {m.cost.toFixed(2)}</TableCell>
-                          <TableCell className="px-4 py-3 text-sm tabular-nums font-bold text-foreground">{CURRENCY} {m.profit.toFixed(2)}</TableCell>
+                          <TableCell className="px-4 py-3 text-sm tabular-nums text-foreground font-medium">{money(m.revenue)}</TableCell>
+                          <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">{money(m.cost)}</TableCell>
+                          <TableCell className="px-4 py-3 text-sm tabular-nums font-bold text-foreground">{money(m.profit)}</TableCell>
                           <TableCell className="px-4 py-3">
                             <StatusChip label={`${margin}%`} variant="green" />
                           </TableCell>

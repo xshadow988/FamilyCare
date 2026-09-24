@@ -22,6 +22,7 @@ import { useAppContext } from '@/components/providers/app-context';
 import { Medicine } from '@/lib/types';
 import { tpt, perTablet, splitStock, formatStock, isLowStock, isOutStock } from '@/lib/strip';
 import { cn } from '@/lib/utils';
+import { money } from '@/lib/money';
 import { apiFetch } from '@/lib/api';
 
 const CURRENCY = defaultSettings.currencySymbol;
@@ -254,15 +255,15 @@ export default function InventoryPage() {
                     )}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-sm tabular-nums text-muted-foreground">
-                    {CURRENCY} {med.purchasePrice.toFixed(2)}
+                    {money(med.purchasePrice)}
                     {tpt(med) > 1 && (
-                      <span className="block text-[11px] text-muted-foreground/70">{CURRENCY} {perTablet(med.purchasePrice, tpt(med)).toFixed(2)}/tab</span>
+                      <span className="block text-[11px] text-muted-foreground/70">{money(perTablet(med.purchasePrice, tpt(med)))}/tab</span>
                     )}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-sm tabular-nums font-semibold text-foreground">
-                    {CURRENCY} {med.sellingPrice.toFixed(2)}
+                    {money(med.sellingPrice)}
                     {tpt(med) > 1 && (
-                      <span className="block text-[11px] font-normal text-muted-foreground/70">{CURRENCY} {perTablet(med.sellingPrice, tpt(med)).toFixed(2)}/tab</span>
+                      <span className="block text-[11px] font-normal text-muted-foreground/70">{money(perTablet(med.sellingPrice, tpt(med)))}/tab</span>
                     )}
                   </TableCell>
                   <TableCell className="px-4 py-3">
@@ -468,7 +469,7 @@ export default function InventoryPage() {
                 <Input
                   readOnly
                   tabIndex={-1}
-                  value={`${CURRENCY} ${perTablet(formData.purchasePrice, formTps).toFixed(2)}`}
+                  value={`${money(perTablet(formData.purchasePrice, formTps))}`}
                   className="h-10 rounded-xl w-full bg-muted/60 text-muted-foreground cursor-default"
                 />
               </div>
@@ -477,7 +478,7 @@ export default function InventoryPage() {
                 <Input
                   readOnly
                   tabIndex={-1}
-                  value={`${CURRENCY} ${perTablet(formData.sellingPrice, formTps).toFixed(2)}`}
+                  value={`${money(perTablet(formData.sellingPrice, formTps))}`}
                   className="h-10 rounded-xl w-full bg-muted/60 text-muted-foreground cursor-default"
                 />
               </div>

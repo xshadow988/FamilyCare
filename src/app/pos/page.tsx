@@ -19,6 +19,7 @@ import { Medicine, CartItem, Sale } from '@/lib/types';
 import { tpt, perTablet, isLowStock, isOutStock } from '@/lib/strip';
 import { printReceipt } from '@/lib/print-receipt';
 import { cn } from '@/lib/utils';
+import { money } from '@/lib/money';
 import { apiFetch } from '@/lib/api';
 
 const CURRENCY = defaultSettings.currencySymbol;
@@ -331,11 +332,11 @@ export default function POSPage() {
                             <div className="min-w-0">
                               <p className="text-[10px] text-muted-foreground mb-0.5 font-medium">{t > 1 ? 'Price / strip' : 'Unit Price'}</p>
                               <p className="font-bold text-base text-foreground leading-none">
-                                {CURRENCY} {med.sellingPrice.toFixed(2)}
+                                {money(med.sellingPrice)}
                               </p>
                               {t > 1 && (
                                 <p className="text-[10px] text-muted-foreground mt-1 leading-none">
-                                  {CURRENCY} {perTablet(med.sellingPrice, t).toFixed(2)}/tab · {t}/strip
+                                  {money(perTablet(med.sellingPrice, t))}/tab · {t}/strip
                                 </p>
                               )}
                             </div>
@@ -429,7 +430,7 @@ export default function POSPage() {
                         <PriceInput value={priceTab(item)} onChange={p => updatePrice(item.medicine.id, p)} />
                         <span className="text-xs text-muted-foreground font-medium">/ {t > 1 ? 'tablet' : item.medicine.unit}</span>
                         {t > 1 && (
-                          <span className="text-[10px] text-muted-foreground/70">· {CURRENCY} {item.medicine.sellingPrice.toFixed(2)}/strip ({t})</span>
+                          <span className="text-[10px] text-muted-foreground/70">· {money(item.medicine.sellingPrice)}/strip ({t})</span>
                         )}
                       </div>
 
@@ -468,9 +469,9 @@ export default function POSPage() {
                         </div>
 
                         <div className="text-right">
-                          <p className="text-[10px] text-muted-foreground">{tabs} {t > 1 ? 'tab' : item.medicine.unit} × {CURRENCY} {priceTab(item).toFixed(2)}</p>
+                          <p className="text-[10px] text-muted-foreground">{tabs} {t > 1 ? 'tab' : item.medicine.unit} × {money(priceTab(item))}</p>
                           <p className="text-sm font-bold text-foreground tabular-nums">
-                            {CURRENCY} {lineTotal(item).toFixed(2)}
+                            {money(lineTotal(item))}
                           </p>
                         </div>
                       </div>
@@ -513,7 +514,7 @@ export default function POSPage() {
               {/* Subtotal */}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground font-medium">Subtotal</span>
-                <span className="text-foreground tabular-nums font-medium">{CURRENCY} {subtotal.toFixed(2)}</span>
+                <span className="text-foreground tabular-nums font-medium">{money(subtotal)}</span>
               </div>
 
               {/* Discount (by amount) */}
@@ -538,7 +539,7 @@ export default function POSPage() {
               <div className="rounded-2xl bg-muted/60 px-4 py-3 flex items-center justify-between mt-1 mb-4">
                 <span className="text-sm font-semibold text-foreground">Total Amount</span>
                 <span className="text-2xl font-bold text-foreground tabular-nums tracking-tight">
-                  {CURRENCY} {total.toFixed(2)}
+                  {money(total)}
                 </span>
               </div>
 
@@ -618,10 +619,10 @@ export default function POSPage() {
                       <div key={idx} className="flex items-baseline">
                         <div className="flex-1 min-w-0 pr-2">
                           <p className="text-foreground font-medium truncate">{item.medicineName}</p>
-                          <p className="text-[10px] text-muted-foreground">{CURRENCY} {item.price.toFixed(2)} each</p>
+                          <p className="text-[10px] text-muted-foreground">{money(item.price)} each</p>
                         </div>
                         <span className="w-8 text-center shrink-0 text-muted-foreground">{item.quantity}</span>
-                        <span className="w-24 text-right shrink-0 font-semibold text-foreground">{CURRENCY} {item.total.toFixed(2)}</span>
+                        <span className="w-24 text-right shrink-0 font-semibold text-foreground">{money(item.total)}</span>
                       </div>
                     ))}
                   </div>
@@ -631,14 +632,14 @@ export default function POSPage() {
               {/* Totals */}
               {lastSale && (
                 <div className="space-y-1.5 pb-3 border-b border-dashed">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums">{CURRENCY} {lastSale.subtotal.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums">{money(lastSale.subtotal)}</span></div>
                   {lastSale.discount > 0 && (
-                    <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span className="tabular-nums">− {CURRENCY} {lastSale.discount.toFixed(2)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span className="tabular-nums">− {money(lastSale.discount)}</span></div>
                   )}
-                  <div className="flex justify-between"><span className="text-muted-foreground">Tax ({defaultSettings.taxPercentage}%)</span><span className="tabular-nums">{CURRENCY} {lastSale.tax.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Tax ({defaultSettings.taxPercentage}%)</span><span className="tabular-nums">{money(lastSale.tax)}</span></div>
                   <div className="flex justify-between font-bold text-sm pt-1.5 border-t border-dashed">
                     <span className="text-foreground">TOTAL</span>
-                    <span className="text-foreground tabular-nums">{CURRENCY} {lastSale.total.toFixed(2)}</span>
+                    <span className="text-foreground tabular-nums">{money(lastSale.total)}</span>
                   </div>
                 </div>
               )}

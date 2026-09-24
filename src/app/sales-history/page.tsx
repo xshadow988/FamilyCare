@@ -26,6 +26,7 @@ import { useAppContext } from '@/components/providers/app-context';
 import { Sale } from '@/lib/types';
 import { tpt, perTablet } from '@/lib/strip';
 import { cn } from '@/lib/utils';
+import { money } from '@/lib/money';
 import { apiFetch } from '@/lib/api';
 
 const CURRENCY = defaultSettings.currencySymbol;
@@ -67,7 +68,7 @@ function PaymentBadge({ method }: { method: Sale['paymentMethod'] }) {
 }
 
 export default function SalesHistoryPage() {
-  const { sales, setSales, medicines, setMedicines } = useAppContext();
+  const { sales, setSales, medicines, setMedicines, purchases } = useAppContext();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [paymentFilter, setPaymentFilter] = useState('All');
@@ -120,14 +121,18 @@ export default function SalesHistoryPage() {
     return t >= start.getTime() && t <= end.getTime();
   };
 
+  // One place decides what the selected period means, so the purchase figures
+  // on the Net Profit card always cover exactly the same days as the sales.
+  const matchesPeriod = (dateStr: string) => periodFilter === 'custom'
+    ? inCustomRange(dateStr)
+    : (periodCutoff === null || new Date(dateStr).getTime() >= periodCutoff);
+
   const filtered = sales.filter(s => {
     const q = search.toLowerCase();
     const matchSearch = !q || s.invoiceNumber.toLowerCase().includes(q) || (s.customerName ?? '').toLowerCase().includes(q);
     const matchStatus = statusFilter === 'All' || s.status === statusFilter;
     const matchPayment = paymentFilter === 'All' || s.paymentMethod === paymentFilter;
-    const matchPeriod = periodFilter === 'custom'
-      ? inCustomRange(s.date)
-      : (periodCutoff === null || new Date(s.date).getTime() >= periodCutoff);
+    const matchPeriod = matchesPeriod(s.date);
     const matchDiscount = discountFilter === 'all'
       || (discountFilter === 'with' && s.discount > 0)
       || (discountFilter === 'without' && s.discount <= 0);
@@ -148,20 +153,41 @@ export default function SalesHistoryPage() {
   // Profit if no discounts had been applied (revenue + discounts − cost)
   const netProfitNoDiscount = totalNetProfit + totalDiscount;
 
+  // Money spent on stock in the same period. Deliberately NOT part of profit:
+  // stock bought and not yet sold is inventory, not an expense. Showing both
+  // here is what stops "revenue − purchases" being mistaken for profit.
+  const stockPurchased = purchases
+    .filter(p => p.status === 'received' && matchesPeriod(p.date))
+    .reduce((sum, p) => sum + p.total, 0);
+  const cashDifference = totalRevenue - stockPurchased;
+  const stockNotYetSold = stockPurchased - totalCost;
+
   return (
     <AppLayout>
       <div className="p-5 space-y-4">
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
-            { desc: 'Total Revenue', value: `${CURRENCY} ${totalRevenue.toFixed(2)}`, footerMain: 'Completed sales revenue', footerSub: 'After discounts applied' },
-            { desc: 'Net Profit (Actual)', value: `${CURRENCY} ${totalNetProfit.toFixed(2)}`, badge: { kind: (totalNetProfit >= 0 ? 'up' : 'down') as 'up' | 'down' | 'tag', text: totalNetProfit >= 0 ? 'Profit' : 'Loss' }, footerMain: 'Profit after discounts', footerSub: 'Revenue minus cost' },
-            { desc: 'Net Profit (Before Discounts)', value: `${CURRENCY} ${netProfitNoDiscount.toFixed(2)}`, footerMain: 'Profit without discounts', footerSub: `−${CURRENCY} ${totalDiscount.toFixed(2)} lost to discounts` },
-            { desc: 'Total Discount', value: `${CURRENCY} ${totalDiscount.toFixed(2)}`, badge: { kind: 'tag' as 'up' | 'down' | 'tag', text: `${discountedCount}` }, footerMain: 'Discounts provided', footerSub: `Across ${discountedCount} receipt${discountedCount === 1 ? '' : 's'}` },
+            { desc: 'Total Revenue', value: money(totalRevenue), footerMain: 'Completed sales revenue', footerSub: 'After discounts applied' },
+            {
+              desc: 'Net Profit (Actual)',
+              value: money(totalNetProfit),
+              badge: { kind: (totalNetProfit >= 0 ? 'up' : 'down') as 'up' | 'down' | 'tag', text: totalNetProfit >= 0 ? 'Profit' : 'Loss' },
+              footerMain: 'Profit after discounts',
+              footerSub: 'Revenue minus cost of goods sold',
+              extra: [
+                { label: 'Stock purchased', value: money(stockPurchased) },
+                { label: 'Revenue − stock purchased', value: money(cashDifference), strong: true },
+                { label: 'Stock not yet sold', value: money(stockNotYetSold), muted: true },
+              ],
+            },
+            { desc: 'Net Profit (Before Discounts)', value: money(netProfitNoDiscount), footerMain: 'Profit without discounts', footerSub: `−${money(totalDiscount)} lost to discounts` },
+            { desc: 'Total Discount', value: money(totalDiscount), badge: { kind: 'tag' as 'up' | 'down' | 'tag', text: `${discountedCount}` }, footerMain: 'Discounts provided', footerSub: `Across ${discountedCount} receipt${discountedCount === 1 ? '' : 's'}` },
             { desc: 'Total Transactions', value: String(filtered.length), footerMain: 'All transactions in view', footerSub: 'Matches current filters' },
             { desc: 'Completed Sales', value: String(completedCount), footerMain: 'Completed transactions', footerSub: 'Excludes refunds' },
           ].map(c => {
             const badge = (c as { badge?: { kind: 'up' | 'down' | 'tag'; text: string } }).badge;
+            const extra = (c as { extra?: { label: string; value: string; strong?: boolean; muted?: boolean }[] }).extra;
             return (
               <Card key={c.desc} className="@container/card">
                 <CardHeader>
@@ -179,6 +205,22 @@ export default function SalesHistoryPage() {
                 <CardFooter className="flex-col items-start gap-1.5 text-sm">
                   <div className="line-clamp-1 flex gap-2 font-medium">{c.footerMain}</div>
                   <div className="text-muted-foreground">{c.footerSub}</div>
+                  {extra && (
+                    <div className="mt-1.5 w-full space-y-1 border-t pt-2">
+                      {extra.map(e => (
+                        <div key={e.label} className="flex items-baseline justify-between gap-2">
+                          <span className={cn('text-xs', e.muted ? 'text-muted-foreground' : 'text-muted-foreground')}>{e.label}</span>
+                          <span className={cn(
+                            'shrink-0 text-xs tabular-nums',
+                            e.strong ? 'font-bold text-foreground' : e.muted ? 'font-semibold text-blue-600' : 'font-semibold text-foreground',
+                          )}>{e.value}</span>
+                        </div>
+                      ))}
+                      <p className="pt-0.5 text-[10px] leading-snug text-muted-foreground">
+                        Cash view, not profit. Unsold stock is inventory you still own.
+                      </p>
+                    </div>
+                  )}
                 </CardFooter>
               </Card>
             );
@@ -319,9 +361,9 @@ export default function SalesHistoryPage() {
                     </TableCell>
                     <TableCell className="px-4 py-3"><PaymentBadge method={sale.paymentMethod} /></TableCell>
                     <TableCell className="px-4 py-3 tabular-nums">
-                      <span className="font-bold text-sm text-foreground">{CURRENCY} {sale.total.toFixed(2)}</span>
+                      <span className="font-bold text-sm text-foreground">{money(sale.total)}</span>
                       {sale.discount > 0 && (
-                        <span className="block text-[11px] font-medium text-emerald-600 dark:text-emerald-400">−{CURRENCY} {sale.discount.toFixed(2)} disc</span>
+                        <span className="block text-[11px] font-medium text-emerald-600 dark:text-emerald-400">−{money(sale.discount)} disc</span>
                       )}
                     </TableCell>
                     <TableCell className="px-4 py-3 text-xs text-muted-foreground">{new Date(sale.date).toLocaleString()}</TableCell>
@@ -387,10 +429,10 @@ export default function SalesHistoryPage() {
                       <div key={idx} className="flex items-baseline">
                         <div className="flex-1 min-w-0 pr-2">
                           <p className="text-foreground font-medium truncate">{item.medicineName}</p>
-                          <p className="text-[10px] text-muted-foreground">{CURRENCY} {item.price.toFixed(2)} each</p>
+                          <p className="text-[10px] text-muted-foreground">{money(item.price)} each</p>
                         </div>
                         <span className="w-8 text-center shrink-0 text-muted-foreground">{item.quantity}</span>
-                        <span className="w-24 text-right shrink-0 font-semibold text-foreground">{CURRENCY} {item.total.toFixed(2)}</span>
+                        <span className="w-24 text-right shrink-0 font-semibold text-foreground">{money(item.total)}</span>
                       </div>
                     ))}
                   </div>
@@ -398,10 +440,10 @@ export default function SalesHistoryPage() {
 
                 {/* Totals */}
                 <div className="space-y-1.5 pb-3 border-b border-dashed">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{CURRENCY} {selectedSale.subtotal.toFixed(2)}</span></div>
-                  {selectedSale.discount > 0 && <div className="flex justify-between text-emerald-600"><span>Discount</span><span>-{CURRENCY} {selectedSale.discount.toFixed(2)}</span></div>}
-                  <div className="flex justify-between"><span className="text-muted-foreground">Tax ({defaultSettings.taxPercentage}%)</span><span>{CURRENCY} {selectedSale.tax.toFixed(2)}</span></div>
-                  <div className="flex justify-between font-bold text-sm pt-1 border-t border-dashed"><span className="text-foreground">TOTAL</span><span className="text-foreground tabular-nums">{CURRENCY} {selectedSale.total.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{money(selectedSale.subtotal)}</span></div>
+                  {selectedSale.discount > 0 && <div className="flex justify-between text-emerald-600"><span>Discount</span><span>-{money(selectedSale.discount)}</span></div>}
+                  <div className="flex justify-between"><span className="text-muted-foreground">Tax ({defaultSettings.taxPercentage}%)</span><span>{money(selectedSale.tax)}</span></div>
+                  <div className="flex justify-between font-bold text-sm pt-1 border-t border-dashed"><span className="text-foreground">TOTAL</span><span className="text-foreground tabular-nums">{money(selectedSale.total)}</span></div>
                 </div>
 
                 <div className="text-center text-muted-foreground text-[11px]">{defaultSettings.receiptFooter}</div>

@@ -33,6 +33,7 @@ import { useAppContext } from '@/components/providers/app-context';
 import { StatCard } from '@/components/ui/stat-card';
 import { tpt, perTablet, isLowStock } from '@/lib/strip';
 import { cn } from '@/lib/utils';
+import { money } from '@/lib/money';
 import Link from 'next/link';
 
 const CURRENCY = defaultSettings.currencySymbol;
@@ -91,19 +92,19 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <StatCard
             description="Today's Sales"
-            value={`${CURRENCY} ${todayRevenue.toFixed(2)}`}
+            value={`${money(todayRevenue)}`}
             footerMain="Sales completed today"
             footerSub="Revenue so far"
           />
           <StatCard
             description="Total Revenue"
-            value={`${CURRENCY} ${monthlyRevenue.toFixed(2)}`}
+            value={`${money(monthlyRevenue)}`}
             footerMain="All completed sales"
             footerSub="Lifetime revenue"
           />
           <StatCard
             description="Net Profit"
-            value={`${CURRENCY} ${monthlyProfit.toFixed(2)}`}
+            value={`${money(monthlyProfit)}`}
             badge={{ icon: monthlyProfit >= 0 ? 'up' : 'down', text: monthlyProfit >= 0 ? 'Profit' : 'Loss' }}
             footerMain="Revenue minus costs"
             footerSub="After all costs"
@@ -220,7 +221,7 @@ export default function DashboardPage() {
                       <p className="text-xs text-muted-foreground truncate">{sale.customerName ?? 'Walk-in Patient'} · {sale.items.length} item{sale.items.length > 1 ? 's' : ''}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold text-foreground">{CURRENCY}{sale.total.toFixed(2)}</p>
+                      <p className="text-sm font-semibold text-foreground">{money(sale.total)}</p>
                       <Badge
                         variant="secondary"
                         className={cn(

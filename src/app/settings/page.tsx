@@ -28,6 +28,7 @@ import { AppSettings } from '@/lib/types';
 import { useTheme } from 'next-themes';
 import { useAppContext } from '@/components/providers/app-context';
 import { cn } from '@/lib/utils';
+import { money } from '@/lib/money';
 import { apiFetch } from '@/lib/api';
 
 const CURRENCY = defaultSettings.currencySymbol;
@@ -241,7 +242,7 @@ export default function SettingsPage() {
 
                 <div className="mt-4 rounded-xl bg-blue-50 dark:bg-blue-950/20 p-4 text-sm space-y-1">
                   <p className="font-semibold text-blue-700 dark:text-blue-400">Current Tax Preview</p>
-                  <p className="text-muted-foreground">A {CURRENCY}100.00 sale will include {CURRENCY}{(100 * settings.taxPercentage / 100).toFixed(2)} in tax for a total of {CURRENCY}{(100 + 100 * settings.taxPercentage / 100).toFixed(2)}</p>
+                  <p className="text-muted-foreground">A {CURRENCY}100.00 sale will include {money((100 * settings.taxPercentage / 100))} in tax for a total of {money((100 + 100 * settings.taxPercentage / 100))}</p>
                 </div>
               </CardContent>
             </Card>
