@@ -23,28 +23,11 @@ import { useAppContext } from '@/components/providers/app-context';
 import { Purchase } from '@/lib/types';
 import { formatStock } from '@/lib/strip';
 import { cn } from '@/lib/utils';
+import { PERIOD_LABELS, monthBounds, rangeBounds, inPeriod, type DateWindow } from '@/lib/period';
 import { apiFetch } from '@/lib/api';
 
 const CURRENCY = defaultSettings.currencySymbol;
 const PAGE_SIZE = 10;
-
-// Rolling windows, matching the period filter in Sales History — except
-// `thismonth` and `custom`, which are true calendar ranges.
-const PERIOD_LABELS: Record<string, string> = {
-  all: 'All Time',
-  daily: 'Daily (Today)',
-  weekly: 'Weekly',
-  biweekly: 'Bi-Weekly',
-  monthly: 'Monthly (30 days)',
-  thismonth: 'This Month',
-  custom: 'Custom Range',
-};
-
-/** First and last instant of the calendar month containing `d`. */
-const monthBounds = (d: Date) => ({
-  from: new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0),
-  to: new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999),
-});
 
 const emptyForm = {
   medicineId: '',
@@ -74,27 +57,10 @@ export default function PurchasesPage() {
     ? medicines
     : medicines.filter(m => m.category === categoryFilter);
 
-  // Cutoff timestamp for the rolling periods — purchases on/after it pass.
-  const periodCutoff = useMemo(() => {
-    const dayMs = 24 * 60 * 60 * 1000;
-    const now = Date.now();
-    switch (periodFilter) {
-      case 'daily': { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
-      case 'weekly': return now - 7 * dayMs;
-      case 'biweekly': return now - 14 * dayMs;
-      case 'monthly': return now - 30 * dayMs;
-      default: return null;
-    }
-  }, [periodFilter]);
-
-  // Calendar-based periods need both ends, not just a cutoff.
-  const dateWindow = useMemo((): { from: Date; to: Date } | null => {
+  // Period meanings live in lib/period.ts so every report page agrees.
+  const dateWindow = useMemo((): DateWindow | null => {
     if (periodFilter === 'thismonth') return monthBounds(new Date());
-    if (periodFilter === 'custom' && customRange?.from) {
-      const from = new Date(customRange.from); from.setHours(0, 0, 0, 0);
-      const to = new Date(customRange.to ?? customRange.from); to.setHours(23, 59, 59, 999);
-      return { from, to };
-    }
+    if (periodFilter === 'custom' && customRange?.from) return rangeBounds(customRange.from, customRange.to);
     return null;
   }, [periodFilter, customRange]);
 
@@ -110,15 +76,11 @@ export default function PurchasesPage() {
   const filtered = useMemo(() => purchases.filter(p => {
     const q = search.toLowerCase();
     const matchSearch = !q || p.medicineName.toLowerCase().includes(q) || p.invoiceNumber.toLowerCase().includes(q);
-    const t = new Date(p.date).getTime();
-    const matchPeriod = dateWindow
-      ? t >= dateWindow.from.getTime() && t <= dateWindow.to.getTime()
-      : periodCutoff === null || t >= periodCutoff;
-    return matchSearch && matchPeriod;
+    return matchSearch && inPeriod(p.date, periodFilter, dateWindow);
   }).sort((a, b) => {
     const d = new Date(b.date).getTime() - new Date(a.date).getTime();
     return d !== 0 ? d : b.invoiceNumber.localeCompare(a.invoiceNumber);
-  }), [purchases, search, periodCutoff, dateWindow]);
+  }), [purchases, search, periodFilter, dateWindow]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);

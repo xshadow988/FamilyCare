@@ -41,6 +41,29 @@ remounts and the demo user keeps seeing it. This shipped once and reached produc
 start made the fetch fail silently in local testing and hid it. Test demo isolation with a **warm**
 database, and record network traffic from before the first navigation.
 
+## What "profit" means here
+
+Net Profit = **revenue − cost of goods SOLD**, never revenue minus money spent on stock.
+Dashboard, Sales History and Profits all compute it the same way: for each sold item,
+`perTablet(medicine.purchasePrice, tabletsPerStrip) × quantity`.
+
+Staff reasonably expect `revenue − purchases` and get a smaller number. The difference is
+stock bought in the period that has not sold yet — inventory, not a loss. The Profits page
+has a reconciliation panel that shows both figures and names the gap, so this question
+answers itself; keep it in sync if the profit formula ever changes.
+
+Two known inaccuracies in that cost figure, both deliberate for now:
+
+- It uses the medicine's **current** `purchasePrice`, not the price on the day of the sale.
+  `POST /api/purchases` overwrites that field, so a supplier price change silently restates
+  past months. Measured on 1–24 Sept 2026: Rs 1,785 of a Rs 189,236 profit (~0.9%). Fixing it
+  properly means storing cost-at-sale on `SaleItem`, which is a production migration.
+- If a medicine is deleted, its sold items fall back to `item.price * 0.4` — a guess. Currently
+  no live sale hits this path.
+
+Period filtering for the report pages lives in [src/lib/period.ts](src/lib/period.ts). Note the
+split: `daily`/`weekly`/`biweekly`/`monthly` are **rolling** windows (last N days), while
+`thismonth` and `custom` are true calendar ranges. Use `inPeriod()` rather than re-deriving it.
 ## Units: the one thing that bites
 
 `Medicine.stock` is stored **in tablets** (the smallest unit). Everything else is not:
