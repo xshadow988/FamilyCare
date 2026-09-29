@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
 import { Card } from '@/components/ui/card';
 import { StatCard } from '@/components/ui/stat-card';
@@ -82,8 +82,9 @@ export default function InventoryPage() {
   const [showDialog, setShowDialog] = useState(false);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [editMed, setEditMed] = useState<Medicine | null>(null);
-  // The stock this dialog was opened with, in tablets.
-  const [openedStock, setOpenedStock] = useState<number | null>(null);
+  // The stock fields as this dialog filled them, so saving can tell an
+  // untouched figure from a fresh count.
+  const [openedStock, setOpenedStock] = useState<{ strips: number; tablets: number } | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [formData, setFormData] = useState<MedForm>(emptyMed);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -104,6 +105,23 @@ export default function InventoryPage() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  // The shared context loads medicines once at sign-in and never refetches, so
+  // this screen could sit on a stock figure from hours ago — which reads exactly
+  // like a sale that never came off the shelf, even when the database is right.
+  // Medicines alone are a small payload; the sales list is not, so only this is
+  // refreshed.
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch('/api/medicines')
+      .then(res => (res.ok ? res.json() : null))
+      .then(fresh => { if (!cancelled && fresh) setMedicines(fresh); })
+      .catch(() => {
+        // Offline or asleep: the figures already on screen are the best we have.
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const openAdd = () => { setEditMed(null); setFormData(emptyMed); setShowDialog(true); };
   const openEdit = (med: Medicine) => {
     setEditMed(med);
@@ -115,7 +133,7 @@ export default function InventoryPage() {
     });
     // What the stock fields were filled with, so saving can tell an untouched
     // figure from a fresh count. See handleSave.
-    setOpenedStock(med.stock);
+    setOpenedStock({ strips, tablets });
     setShowDialog(true);
   };
 
@@ -124,15 +142,24 @@ export default function InventoryPage() {
     const tps = Math.max(1, Math.floor(formData.tabletsPerStrip || 1));
     const typedStock = formData.stockStrips * tps + formData.stockTablets;
 
-    // Stock goes back ONLY if someone typed a new count.
+    // Stock goes back ONLY if someone typed into the stock fields.
     //
-    // This dialog is filled from a medicine list the browser loaded at sign-in
-    // and never refreshes, so its stock figure can be hours stale. Sending it
-    // back unchanged wrote that stale number over the live one and erased every
-    // sale rung up in between — the till had taken the tablets off the shelf and
-    // saving an unrelated price edit put them back. Leaving the field alone now
-    // leaves the column alone.
-    const stockUntouched = editMed !== null && openedStock !== null && typedStock === openedStock;
+    // This dialog is filled from a medicine list the browser loaded at sign-in,
+    // so its stock figure can be stale. Sending it back unchanged wrote that
+    // stale number over the live one and erased every sale rung up in between —
+    // the till had taken the tablets off the shelf and saving an unrelated price
+    // edit put them back.
+    //
+    // The comparison is against the fields themselves, not the total they add up
+    // to, because `stock` is counted in tablets and the strip size is only how
+    // they are shown. Correcting a medicine from 10 to 15 per strip does not put
+    // 50 more tablets on the shelf, but multiplying the untouched "10 strips" by
+    // the new size claims it does.
+    const stockUntouched =
+      editMed !== null &&
+      openedStock !== null &&
+      formData.stockStrips === openedStock.strips &&
+      formData.stockTablets === openedStock.tablets;
     const payload = {
       name: formData.name,
       category: formData.category,
