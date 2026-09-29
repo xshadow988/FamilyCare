@@ -11,6 +11,9 @@ Repo: `github.com/xshadow988/FamilyCare` · release convention: annotated tags `
 sales against it right now. There is no separate dev database.
 
 - Never run `POST /api/reset`, `restore-db.mjs --confirm`, or `prisma db push` casually.
+  `POST /api/reset` now refuses unless `ALLOW_DATA_RESET=true` is set, which production must
+  never have. It was an unauthenticated route that wiped every table — the Settings screen asks you
+  to type RESET, but that check is in the browser and a plain curl skipped it entirely.
 - Take a snapshot first: `node scripts/backup-db.mjs "Backup-<date>-<reason>"`.
 - For risky work, use the local SQLite setup instead (`prisma/schema.local.prisma`, `seed-local.mjs`).
 

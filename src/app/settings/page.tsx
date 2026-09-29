@@ -29,7 +29,7 @@ import { useTheme } from 'next-themes';
 import { useAppContext } from '@/components/providers/app-context';
 import { cn } from '@/lib/utils';
 import { money } from '@/lib/money';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, errorText } from '@/lib/api';
 
 const CURRENCY = defaultSettings.currencySymbol;
 
@@ -61,7 +61,14 @@ export default function SettingsPage() {
     if (confirmText !== 'RESET') return;
     setResetting(true);
     try {
-      await apiFetch('/api/reset', { method: 'POST' });
+      // The route refuses unless the deployment allows resets, so saying
+      // "all data has been reset" without looking would be a lie in the most
+      // alarming possible direction.
+      const res = await apiFetch('/api/reset', { method: 'POST' });
+      if (!res.ok) {
+        alert(await errorText(res));
+        return;
+      }
       await reload();
       setResetDone(true);
       setTimeout(() => { setShowResetDialog(false); setResetDone(false); setConfirmText(''); }, 1500);

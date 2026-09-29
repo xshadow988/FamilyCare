@@ -8,13 +8,22 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   if (!purchase) return NextResponse.json({ error: 'Purchase not found' }, { status: 404 });
 
   await prisma.$transaction(async (tx) => {
-    // Reverse the stock this purchase added — quantity is strips, stock is tablets
-    const med = await tx.medicine.findUnique({ where: { id: purchase.medicineId } });
+    // Reverse the stock this purchase added — quantity is strips, stock is tablets.
+    //
+    // The subtraction is a decrement, not a figure computed from a stock value
+    // read a moment earlier. Reading and writing back loses anything that moved
+    // in between, which at a busy counter is a sale: the till takes ten tablets
+    // off, this writes a total that was calculated before they left, and the
+    // sale is undone. Postgres applies a decrement against the current row.
+    const med = await tx.medicine.findUnique({
+      where: { id: purchase.medicineId },
+      select: { id: true, tabletsPerStrip: true },
+    });
     if (med) {
       const tabletsAdded = purchase.quantity * Math.max(1, med.tabletsPerStrip);
       await tx.medicine.update({
         where: { id: med.id },
-        data: { stock: Math.max(0, med.stock - tabletsAdded) },
+        data: { stock: { decrement: tabletsAdded } },
       });
     }
     await tx.purchase.delete({ where: { id } });

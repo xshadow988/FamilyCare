@@ -13,7 +13,7 @@ import { AlertTriangle, User, Building2, Phone, Mail, MapPin, RotateCcw, CheckCi
 import { defaultSettings } from '@/lib/data';
 import { useAppContext } from '@/components/providers/app-context';
 import { cn } from '@/lib/utils';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, errorText } from '@/lib/api';
 
 export default function ProfilePage() {
   const { reload } = useAppContext();
@@ -26,7 +26,14 @@ export default function ProfilePage() {
     if (confirmText !== 'RESET') return;
     setResetting(true);
     try {
-      await apiFetch('/api/reset', { method: 'POST' });
+      // The route refuses unless the deployment allows resets, so saying
+      // "all data has been reset" without looking would be a lie in the most
+      // alarming possible direction.
+      const res = await apiFetch('/api/reset', { method: 'POST' });
+      if (!res.ok) {
+        alert(await errorText(res));
+        return;
+      }
       await reload();
       setResetDone(true);
       setTimeout(() => {

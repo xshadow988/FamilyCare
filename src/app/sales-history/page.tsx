@@ -27,7 +27,7 @@ import { Sale } from '@/lib/types';
 import { tpt, perTablet } from '@/lib/strip';
 import { cn } from '@/lib/utils';
 import { money } from '@/lib/money';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, errorText } from '@/lib/api';
 
 const CURRENCY = defaultSettings.currencySymbol;
 
@@ -85,15 +85,17 @@ export default function SalesHistoryPage() {
     setReverting(true);
     try {
       const res = await apiFetch(`/api/sales/${selectedSale.id}/revert`, { method: 'POST' });
-      if (!res.ok) throw new Error('Failed');
+      // The server answers 409 when the sale was already reverted, which is a
+      // different thing from "try again" and worth saying out loud.
+      if (!res.ok) { alert(await errorText(res)); return; }
       // Update local state — mark sale refunded and restore stock
       setSales(prev => prev.map(s => s.id === selectedSale.id ? { ...s, status: 'refunded' as const } : s));
       const medsRes = await apiFetch('/api/medicines');
-      setMedicines(await medsRes.json());
+      if (medsRes.ok) setMedicines(await medsRes.json());
       setSelectedSale(prev => prev ? { ...prev, status: 'refunded' } : null);
       setShowRevertConfirm(false);
     } catch {
-      alert('Could not revert sale. Please try again.');
+      alert('Could not reach the server. The sale was not reverted.');
     } finally {
       setReverting(false);
     }
