@@ -20,7 +20,7 @@ import { tpt, perTablet, isLowStock, isOutStock } from '@/lib/strip';
 import { printReceipt } from '@/lib/print-receipt';
 import { cn } from '@/lib/utils';
 import { money } from '@/lib/money';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, errorText } from '@/lib/api';
 
 const CURRENCY = defaultSettings.currencySymbol;
 type PaymentMethod = 'cash' | 'online';
@@ -95,6 +95,7 @@ export default function POSPage() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastSale, setLastSale] = useState<Sale | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const filteredMedicines = useMemo(() => {
@@ -166,7 +167,7 @@ export default function POSPage() {
     setCart(prev => prev.map(i => i.medicine.id === id ? { ...i, price } : i));
 
   const removeFromCart = (id: string) => setCart(prev => prev.filter(i => i.medicine.id !== id));
-  const clearCart = () => { setCart([]); setCustomerName(''); setDiscount(0); };
+  const clearCart = () => { setCart([]); setCustomerName(''); setDiscount(0); setCheckoutError(null); };
 
   const subtotal = cart.reduce((sum, i) => sum + lineTotal(i), 0);
   const discountAmount = Math.min(Math.max(0, discount), subtotal);
@@ -193,15 +194,28 @@ export default function POSPage() {
         status: 'completed',
       };
       const res = await apiFetch('/api/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+
+      // A sale that did not save must not print a receipt. This used to go
+      // straight to res.json(): a rejected request produced a receipt for a
+      // sale that was never recorded and stock that was never moved, and the
+      // counter had no way to tell the difference.
+      if (!res.ok) {
+        setCheckoutError(await errorText(res));
+        setIsProcessing(false);
+        return;
+      }
+
       const savedSale = await res.json();
       setSales(prev => [savedSale, ...prev]);
       // Refresh medicine stock from server
       const medsRes = await apiFetch('/api/medicines');
-      setMedicines(await medsRes.json());
+      if (medsRes.ok) setMedicines(await medsRes.json());
       setLastSale(savedSale);
+      setCheckoutError(null);
       setIsProcessing(false);
       setShowReceipt(true);
     } catch {
+      setCheckoutError('Could not reach the server. The sale was not saved — please try again.');
       setIsProcessing(false);
     }
   };
@@ -542,6 +556,12 @@ export default function POSPage() {
                   {money(total)}
                 </span>
               </div>
+
+              {checkoutError ? (
+                <p className="mb-3 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-[13px] font-medium text-destructive">
+                  {checkoutError}
+                </p>
+              ) : null}
 
               <Button
                 onClick={handleCheckout}

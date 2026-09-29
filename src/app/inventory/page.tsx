@@ -23,7 +23,7 @@ import { Medicine } from '@/lib/types';
 import { tpt, perTablet, splitStock, formatStock, isLowStock, isOutStock } from '@/lib/strip';
 import { cn } from '@/lib/utils';
 import { money } from '@/lib/money';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, errorText } from '@/lib/api';
 
 const CURRENCY = defaultSettings.currencySymbol;
 const PAGE_SIZE = 10;
@@ -82,6 +82,9 @@ export default function InventoryPage() {
   const [showDialog, setShowDialog] = useState(false);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [editMed, setEditMed] = useState<Medicine | null>(null);
+  // The stock this dialog was opened with, in tablets.
+  const [openedStock, setOpenedStock] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [formData, setFormData] = useState<MedForm>(emptyMed);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -110,12 +113,26 @@ export default function InventoryPage() {
       purchasePrice: med.purchasePrice, sellingPrice: med.sellingPrice, minStock: med.minStock,
       tabletsPerStrip: med.tabletsPerStrip || 1, stockStrips: strips, stockTablets: tablets,
     });
+    // What the stock fields were filled with, so saving can tell an untouched
+    // figure from a fresh count. See handleSave.
+    setOpenedStock(med.stock);
     setShowDialog(true);
   };
 
   const handleSave = async () => {
     if (!formData.name || !formData.sellingPrice || !formData.category || !formData.unit) return;
     const tps = Math.max(1, Math.floor(formData.tabletsPerStrip || 1));
+    const typedStock = formData.stockStrips * tps + formData.stockTablets;
+
+    // Stock goes back ONLY if someone typed a new count.
+    //
+    // This dialog is filled from a medicine list the browser loaded at sign-in
+    // and never refreshes, so its stock figure can be hours stale. Sending it
+    // back unchanged wrote that stale number over the live one and erased every
+    // sale rung up in between — the till had taken the tablets off the shelf and
+    // saving an unrelated price edit put them back. Leaving the field alone now
+    // leaves the column alone.
+    const stockUntouched = editMed !== null && openedStock !== null && typedStock === openedStock;
     const payload = {
       name: formData.name,
       category: formData.category,
@@ -124,23 +141,33 @@ export default function InventoryPage() {
       sellingPrice: formData.sellingPrice,
       minStock: formData.minStock,
       tabletsPerStrip: tps,
-      stock: formData.stockStrips * tps + formData.stockTablets,
+      ...(stockUntouched ? {} : { stock: typedStock }),
     };
     if (editMed) {
       const res = await apiFetch(`/api/medicines/${editMed.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!res.ok) { setSaveError(await errorText(res)); return; }
       const updated = await res.json();
       setMedicines(prev => prev.map(m => m.id === editMed.id ? updated : m));
     } else {
       const res = await apiFetch('/api/medicines', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!res.ok) { setSaveError(await errorText(res)); return; }
       const created = await res.json();
       setMedicines(prev => [...prev, created]);
     }
+    setOpenedStock(null);
+    setSaveError(null);
     setShowDialog(false);
   };
 
   const handleDelete = async () => {
     if (deleteId) {
-      await apiFetch(`/api/medicines/${deleteId}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/medicines/${deleteId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        // The server refuses to delete anything that sales or purchases refer to.
+        setSaveError(await errorText(res));
+        setDeleteId(null);
+        return;
+      }
       setMedicines(prev => prev.filter(m => m.id !== deleteId));
     }
     setDeleteId(null);
@@ -489,8 +516,13 @@ export default function InventoryPage() {
                 : <>Auto-calculated per unit · Set Tablets Per Strip above to sell loose tablets</>}
             </p>
           </div>
+          {saveError ? (
+            <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[13px] text-destructive">
+              {saveError}
+            </p>
+          ) : null}
           <DialogFooter className="mt-2 gap-2">
-            <Button variant="outline" onClick={() => setShowDialog(false)} className="px-5">Cancel</Button>
+            <Button variant="outline" onClick={() => { setSaveError(null); setShowDialog(false); }} className="px-5">Cancel</Button>
             <Button onClick={handleSave} className="bg-foreground hover:bg-foreground/90 text-background px-5">
               {editMed ? 'Save Changes' : 'Add Medicine'}
             </Button>

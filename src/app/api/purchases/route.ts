@@ -9,9 +9,20 @@ export async function GET() {
 export async function POST(req: Request) {
   const body = await req.json();
 
-  const count = await prisma.purchase.count();
+  // Highest issued, not how many rows exist: a deleted purchase used to make
+  // the counter hand out a number that was already on another row. Purchase
+  // invoice numbers carry no unique index, so the clash was silent.
+  const year = new Date().getFullYear();
+  const issued = await prisma.purchase.findMany({
+    where: { invoiceNumber: { startsWith: `PO-${year}-` } },
+    select: { invoiceNumber: true },
+  });
+  const highest = issued.reduce((max, p) => {
+    const seq = Number(p.invoiceNumber.split('-')[2]);
+    return Number.isFinite(seq) && seq > max ? seq : max;
+  }, 0);
   const invoiceNumber = body.invoiceNumber ||
-    `PO-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
+    `PO-${year}-${String(highest + 1).padStart(4, '0')}`;
 
   // quantity is in STRIPS; stock is tracked in tablets
   const tabletsPerStrip = Math.max(1, Math.floor(body.tabletsPerStrip ?? 1));

@@ -28,3 +28,23 @@ export async function apiFetch(input: string, init?: RequestInit): Promise<Respo
     headers: { 'Content-Type': 'application/json' },
   });
 }
+
+/**
+ * A message worth showing the user from a failed response.
+ *
+ * Route handlers answer with `{ error }`; an unhandled exception answers with
+ * an HTML error page that `res.json()` would throw on. Both end up here as a
+ * sentence rather than as a silent no-op, because a till that fails quietly is
+ * worse than one that fails loudly.
+ */
+export async function errorText(res: Response): Promise<string> {
+  try {
+    const body = await res.json();
+    if (body && typeof body === 'object' && typeof (body as { error?: unknown }).error === 'string') {
+      return (body as { error: string }).error;
+    }
+  } catch {
+    // Not JSON — fall through to the status line.
+  }
+  return `The server rejected this (${res.status}). Nothing was saved.`;
+}

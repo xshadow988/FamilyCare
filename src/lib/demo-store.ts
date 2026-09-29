@@ -134,6 +134,22 @@ export function handleDemoRequest(path: string, method: string, body: unknown): 
       return data.medicines[idx];
     }
     if (m === 'DELETE') {
+      // Same refusal as the real API, so a demo never shows behaviour the
+      // pharmacy would not get. Deleting a medicine that sales point at
+      // orphans those lines: their cost stops resolving and the sale can no
+      // longer be reverted.
+      const soldLines = data.sales.reduce(
+        (n, sale) => n + sale.items.filter(it => it.medicineId === medId).length,
+        0,
+      );
+      const purchaseLines = data.purchases.filter(pu => pu.medicineId === medId).length;
+      if (soldLines > 0 || purchaseLines > 0) {
+        return {
+          error:
+            `This medicine appears in ${soldLines} sale line(s) and ${purchaseLines} purchase(s). ` +
+            `Deleting it would break those records. Set its stock to 0 instead.`,
+        };
+      }
       data.medicines = data.medicines.filter(x => x.id !== medId);
       write(data);
       return { ok: true };

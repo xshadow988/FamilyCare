@@ -90,9 +90,34 @@ from the payload — a purchase entry is how prices get updated, not just stock.
   fetches medicines/sales/purchases/categories on mount and exposes `reload()`. Pages mutate via
   `fetch('/api/…')` then call `reload()`. There is no server-side data fetching or caching layer.
 - **API routes** are thin Prisma wrappers under [src/app/api/](src/app/api/). Invoice numbers
-  (`INV-YYYY-NNNN`, `PO-YYYY-NNNN`) are generated server-side from a row `count()`.
+  (`INV-YYYY-NNNN`, `PO-YYYY-NNNN`) are generated server-side from the **highest number already
+  issued**, not a row `count()`: a refunded or deleted row still counts, and two tills reading the
+  same count both try to write it. `POST /api/sales` retries on the unique-index clash.
 - Stock-changing operations (sale, purchase, revert, purchase-delete) run inside `prisma.$transaction`.
 - Reverting a sale sets status `refunded` and adds the stock back; it does not delete the row.
+
+## Never write `Medicine.stock` as an absolute value from a form
+
+The client context loads medicines once at sign-in and does not refresh. Any screen that sends a
+whole medicine object back is sending a stock figure that may be hours old, and `PUT` used to write
+it — so saving a price edit put every tablet sold since the page loaded back on the shelf. That is
+the bug behind "I sold it but it never came off the inventory". Confirmed in production on
+2026-09-29: Moxef was sold 10 tablets at 05:37, its row was rewritten the same minute, and 50 were
+left on the shelf where the ledger said 45.
+
+Rules:
+
+- `PUT /api/medicines/[id]` writes `stock` **only when the key is present**. The inventory dialog
+  remembers what it opened with and omits `stock` unless someone typed a new count.
+- Everything that moves stock as a consequence of trade uses `{ increment }` / `{ decrement }`
+  inside a transaction, never a computed absolute.
+- A typed count still wins outright — someone who has just counted the shelf knows better than the
+  ledger — but it has to be a deliberate act, not a side effect of saving an unrelated field.
+- A medicine that appears in any sale or purchase **cannot be deleted** (`409`). `SaleItem.medicineId`
+  has no foreign key, so deleting orphans those lines: their cost stops resolving and the sale can no
+  longer be reverted. Production already carries 17 such lines from two medicines deleted earlier.
+- Every write from the UI must check `res.ok`. The POS checkout did not, and printed a receipt for
+  sales the server had rejected.
 
 ## Known gaps (not bugs to "fix" incidentally — confirm before changing)
 
